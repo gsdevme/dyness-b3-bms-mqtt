@@ -43,7 +43,10 @@ module number.
   every module state, the stack state and the service state.
 * **MQTT-10** On clean stop (SIGTERM) the service MUST publish `<B>/status` = `offline`
   (retained, QoS 1), wait up to 2 s for it to be acknowledged, then `disconnect()` and
-  `loop_stop()`. It MUST NOT wait longer if the broker is unreachable.
+  `loop_stop()`. It MUST NOT wait longer if the broker is unreachable. This is the
+  publisher's `stop()`, the last step of the clean-stop sequence, after `bus.shutdown()`
+  (`09-service.md` SVC-11). SVC-11 step 2 has already published the retained `offline`
+  without waiting, so it is sent twice; the duplicate is accepted.
 
 ## 3. Topics
 

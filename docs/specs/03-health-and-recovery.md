@@ -15,8 +15,9 @@ A silent module is not treated as an adapter fault.
 
 ## 1. Clock and design constraints
 
-* **HEALTH-01** All ages and timers MUST use a monotonic clock that is injected into the
-  health machine as a `Callable[[], float]` (seconds). Wall-clock time MUST only be used for
+* **HEALTH-01** All ages and timers MUST use a monotonic clock (seconds). The application
+  reads it and passes the health machine the `now` of every input and `step` call (HEALTH-02,
+  section 5.1); the machine holds no clock of its own. Wall-clock time MUST only be used for
   timestamps that get published or persisted.
 * **HEALTH-02** The health machine MUST be a pure object with no I/O, sleeping, threads or
   reads of the real clock. Its inputs are the events in section 5.1 and the `now` passed to
@@ -47,12 +48,22 @@ is measured from the time the bus was last opened successfully.
   | `CELLS_STALE` | `cell_age(m) > CELL_STALE_S` and `CAN_LISTEN_ONLY` is false |
   | `OK` | otherwise |
 
+  Every health decision, and the module statuses the machine publishes, use the effective
+  status, which counts only frames actually received since the service started: a module
+  that has not broadcast yet is `SILENT`, and unless `CAN_LISTEN_ONLY` is true a module
+  counts as `CELLS_STALE` until all five cell codes (`0x11`–`0x15`) have been received from
+  it, even while the ages above, measured from the bus open, are within their limits. The
+  machine's `published_statuses()` reports the effective status of every module (`SILENT`
+  for all of them outside `STARTING`, `HEALTHY` and `DEGRADED`, TEL-06); it is the mapping
+  the application passes to the telemetry snapshot (HEALTH-20).
+
 * **HEALTH-06** When `CAN_LISTEN_ONLY` is true, stale cells MUST NOT make a module
   `CELLS_STALE`, because the service is not allowed to fix them by polling. Cell values are
   still published as `null` when stale (`04-telemetry.md`).
 * **HEALTH-07** For `START_GRACE_S` after entering `STARTING`, a module that is not `OK` MUST
   NOT cause `DEGRADED`, availability `offline` or a re-poll. `STARTING` can still end early
-  when every module is `OK` (section 4).
+  when every module is `OK` by its effective status (HEALTH-05), so only once every module
+  has been heard broadcasting and, unless `CAN_LISTEN_ONLY`, has sent all five cell codes.
 
 ## 3. Poll policy
 
@@ -103,7 +114,7 @@ lower case per `06-mqtt.md` (MQTT-18), for example `STALE` → `stale` (HEALTH-2
 
 | State | Entered when | Actions on entry | Periodic actions | Exits |
 |---|---|---|---|---|
-| `STARTING` | At start-up when the bus opened and escalation < `DEAD_AFTER`; from `STALE` or `DEAD` when a frame arrives | Staggered polls (HEALTH-08). Grace timer starts | Due staggered polls. `SetAvailability(m, true)` as each module's broadcasts become fresh | All modules `OK` → `HEALTHY`. `START_GRACE_S` elapsed: all `OK` → `HEALTHY`, otherwise → `DEGRADED`. Bus silent or bus exception → `STALE` |
+| `STARTING` | At start-up when the bus opened and escalation < `DEAD_AFTER`; from `STALE` or `DEAD` when a frame arrives | Staggered polls (HEALTH-08). Grace timer starts | Due staggered polls. `SetAvailability(m, true)` as each module's broadcasts become fresh | All modules `OK` by effective status (HEALTH-05) → `HEALTHY`. `START_GRACE_S` elapsed: all `OK` → `HEALTHY`, otherwise → `DEGRADED`. Bus silent or bus exception → `STALE` |
 | `HEALTHY` | Every module `OK` and the bus fresh | Healthy timer starts | After `RECOVERY_RESET_S` continuously in `HEALTHY`, emit `SetEscalation(0)` once if escalation > 0 | Any module not `OK` → `DEGRADED`. Bus silent or bus exception → `STALE` |
 | `DEGRADED` | Bus fresh, after the grace period, and at least one module not `OK` | `SetAvailability(m, false)` for each `SILENT` module | Poll ladders (HEALTH-09, HEALTH-10). Availability follows module status changes | All `OK` → `HEALTHY`. Bus silent or bus exception → `STALE`. **Never** → `RECOVERING` |
 | `STALE` | From `STARTING`, `HEALTHY` or `DEGRADED` when the bus is silent or a bus exception occurs | `SetAvailability(m, false)` for every module. If `BUS_REOPEN_ATTEMPTS` ≥ 1, `ReopenBus` (attempt 1). Otherwise go straight to `RECOVERING` | When `BUS_SILENCE_S` has passed since the last attempt with no frame (or that attempt reported failure), and attempts < `BUS_REOPEN_ATTEMPTS`, `ReopenBus` again | Frame received → `STARTING`. All `BUS_REOPEN_ATTEMPTS` attempts used and `BUS_SILENCE_S` passed since the last one with no frame → `RECOVERING` |
