@@ -4,7 +4,7 @@ import pytest
 
 from tests.fakes.clock import FakeClock
 
-pytest_plugins = ["pytester", "tests.plugins.markers"]
+pytest_plugins = ["pytester", "tests.plugins.markers", "tests.plugins.reqtrace"]
 
 
 @pytest.fixture
