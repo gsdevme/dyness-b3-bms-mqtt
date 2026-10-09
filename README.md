@@ -9,8 +9,9 @@ It is the always-on follow-up to [dyness-debug](https://github.com/gsdevme/dynes
 which worked out the protocol and found one weak cell in each of modules 2 and 3 (M2 #8,
 M3 #9). This service keeps an eye on those cells and on the stack as a whole.
 
-**Status (9 Oct 2026):** specification phase. The behaviour is specified in `docs/specs/`;
-there is no code yet.
+**Status (9 Oct 2026):** implemented, awaiting hardware acceptance. The behaviour is
+specified in `docs/specs/`; the acceptance run on the real stack is described in
+[`docs/acceptance/README.md`](docs/acceptance/README.md).
 
 ## Hardware
 
