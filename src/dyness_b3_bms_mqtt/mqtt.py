@@ -7,9 +7,12 @@ and paho's own network thread with exponential reconnect back-off (MQTT-01..04, 
 
 Threading: paho runs the callbacks on its network thread, where they only set or clear the
 ``connected`` event, add to the pending events and append to the pending log notices, all
-under one lock (MQTT-05). The main loop calls :meth:`PahoPublisher.take_events` every
-iteration, which emits those notices through ``logging`` on the main thread and returns the
-events. Every publish and subscribe happens on the main thread.
+under one lock (MQTT-05). A connect that fails before any CONNACK (DNS, TCP refusal, an
+unreachable host, a TLS handshake or certificate error) arrives through ``on_connect_fail``
+and becomes a WARNING notice; paho's reconnect back-off bounds it to one line a minute.
+The main loop calls :meth:`PahoPublisher.take_events` every iteration, which emits those
+notices through ``logging`` on the main thread and returns the events. Every publish and
+subscribe happens on the main thread.
 
 No broker error ever propagates: every paho call is guarded and a failure is logged
 (MQTT-06). ``MQTT_PASSWORD`` is passed to paho and never logged (MQTT-02).
@@ -120,6 +123,7 @@ class PahoPublisher:
             protocol=MQTTProtocolVersion.MQTTv311,
         )
         self._client.on_connect = self._on_connect
+        self._client.on_connect_fail = self._on_connect_fail
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
 
@@ -200,7 +204,12 @@ class PahoPublisher:
             _log.warning("mqtt subscribe to %s failed: %s", topic, _describe(exc))
 
     def publish(self, topic: str, payload: str | bytes, *, qos: int, retain: bool) -> None:
-        """Hand one message to paho while connected; otherwise return at once (MQTT-21)."""
+        """Hand one message to paho while connected; otherwise return at once (MQTT-21).
+
+        A message paho drops because its queue holds ``MAX_QUEUED`` messages is logged at
+        WARNING, since a lost retained message can leave Home Assistant stale until the next
+        republish; any other refusal is logged at DEBUG.
+        """
         if not self.connected:
             return
         try:
@@ -208,7 +217,9 @@ class PahoPublisher:
         except Exception as exc:
             _log.warning("mqtt publish to %s failed: %s", topic, _describe(exc))
             return
-        if info.rc != paho.MQTT_ERR_SUCCESS:
+        if info.rc == paho.MQTT_ERR_QUEUE_SIZE:
+            _log.warning("mqtt publish to %s dropped: %s", topic, paho.error_string(info.rc))
+        elif info.rc != paho.MQTT_ERR_SUCCESS:
             _log.debug("mqtt publish to %s not sent: %s", topic, paho.error_string(info.rc))
 
     def _guarded(self, name: str, call: Callable[[], object]) -> None:
@@ -240,6 +251,11 @@ class PahoPublisher:
             self._connected.set()
             self._events.add(MqttEvent.CONNECTED)
             self._notice(logging.INFO, f"mqtt connected to {self._where}")
+
+    def _on_connect_fail(self, client: paho.Client, userdata: Any) -> None:
+        """Record a connect that failed before any CONNACK on paho's thread."""
+        with self._lock:
+            self._notice(logging.WARNING, f"mqtt connect to {self._where} failed")
 
     def _on_disconnect(
         self,
