@@ -70,6 +70,14 @@ def test_version_is_single_sourced() -> None:
 
 @pytest.mark.req("INST-17")
 def test_release_please_config() -> None:
+    """Pin the release-please config, manifest and workflow.
+
+    The manifest records the last released version. Until the first release it is
+    ``0.0.0`` while ``pyproject.toml`` says ``0.1.0``: release-please treats a manifest
+    version as already released, so ``0.1.0`` there would make the first ``feat`` release
+    ``0.2.0``. From ``0.0.0`` the first release PR proposes ``0.1.0``, and from then on
+    each release PR moves the manifest and ``pyproject.toml`` together.
+    """
     config = json.loads((ROOT / "release-please-config.json").read_text())
     assert config == {
         "packages": {
@@ -91,7 +99,10 @@ def test_release_please_config() -> None:
         }
     }
     manifest = json.loads((ROOT / ".release-please-manifest.json").read_text())
-    assert manifest == {".": _pyproject()["project"]["version"]}
+    version = _pyproject()["project"]["version"]
+    assert manifest in ({".": "0.0.0"}, {".": version})
+    if manifest == {".": "0.0.0"}:
+        assert version == "0.1.0"
 
     workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "release-please.yml").read_text())
     triggers = workflow.get("on", workflow.get(True))
