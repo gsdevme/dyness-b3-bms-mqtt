@@ -86,7 +86,8 @@ Why some of these are set or left out (all directives exist in systemd 252):
 * **SVC-03** The service MUST keep its persistent state only in `$STATE_DIRECTORY`, which
   systemd provides as `/var/lib/dyness-b3-bms-mqtt` (a symlink into `/var/lib/private/`
   under `DynamicUser=yes`). It holds `recovery.json` (written by the service,
-  HEALTH-24) and `last_exit.json` (written by `recover`, SVC-15).
+  HEALTH-24), `last_exit.json` (written by `recover`, SVC-15) and the local history in
+  `logs/` (written by the service, `12-local-logging.md`).
 * **SVC-04** The service MUST read `last_exit.json` at start-up for diagnostics and the
   `restarts` count (HEALTH-24). A missing or invalid file MUST be treated as "no previous
   exit" and MUST NOT stop start-up.
@@ -141,10 +142,13 @@ SocketCAN link up with the configured settings.
 * **SVC-14** `can-up` MUST behave as follows:
   1. **Inputs.** Read `CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_RESTART_MS` and
      `CAN_LISTEN_ONLY` from the environment. Any that are unset or empty MUST be read from
-     `/etc/default/dyness-b3-bms-mqtt` if it exists. The script MUST parse only these
-     `KEY=value` lines (stripping one layer of matching single or double quotes, as systemd
-     does), and MUST NOT source or execute the file, because it runs as root and the file
-     can hold an `MQTT_PASSWORD` containing shell metacharacters. Values still unset take
+     `/etc/default/dyness-b3-bms-mqtt` if it exists. That path MUST be overridable with
+     `ENV_FILE`, used only as a test seam; like `SYSFS_ROOT` and `DEV_ROOT` (SVC-18) it is
+     a helper test input, not service configuration, and is not part of
+     `08-configuration.md`. The script MUST parse only these `KEY=value` lines (stripping
+     one layer of matching single or double quotes, as systemd does), and MUST NOT source or
+     execute the file, because it runs as root and the file can hold an `MQTT_PASSWORD`
+     containing shell metacharacters. Values still unset take
      the defaults from `08-configuration.md`. A test MUST assert that the script's defaults
      equal `08`'s.
   2. **Scope.** If `CAN_INTERFACE` is not `socketcan`, exit 0. If an argument is given
@@ -233,7 +237,7 @@ possible future hook. It is not a requirement and has no configuration variable.
 
   The paths `/sys` and `/dev` MUST be overridable with `SYSFS_ROOT` and `DEV_ROOT`, used only
   as test seams. These are helper test inputs, not service configuration, and are not part of
-  `08-configuration.md`.
+  `08-configuration.md`. `ENV_FILE` (SVC-14 step 1) is the third such seam.
 * **SVC-19** A real exit 76 on the Pi MUST bring a stalled SH-C31A back to receiving
   without a physical replug, or the log MUST show which step failed. **MANUAL**.
 
@@ -273,4 +277,5 @@ These items are covered by the hardware acceptance checklist in `11-testing.md`:
 
 Everything else in this document is covered by automated tests: unit-file and udev-rule
 content checks, a fake `NOTIFY_SOCKET`, signal tests on the real process, and helper scripts
-run against a fake `SYSFS_ROOT`/`DEV_ROOT` with a stub `ip` on `PATH`.
+run against a fake `SYSFS_ROOT`/`DEV_ROOT` and a temporary `ENV_FILE` with a stub `ip` on
+`PATH`.

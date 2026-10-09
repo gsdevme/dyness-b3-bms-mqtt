@@ -48,6 +48,12 @@ This is the mechanism behind `00-overview.md` §4.4.
 
   Identifiers that appear only as references (not bold), or inside code spans or fenced
   code, are not definitions.
+
+  Because a requirement's text ends at the first blank line or table row, a requirement
+  whose lead paragraph is followed by a table, a code block or a further paragraph is
+  classified from its lead paragraph alone. The `MUST` (or `**MANUAL**` tag) that classifies
+  such a requirement therefore has to be in its lead sentence; one that appears only after
+  that point does not count.
 * **TEST-06** The plugin MUST fail the session (non-zero exit) when any of these holds, and
   print every offending identifier grouped by spec file:
   1. a `must` requirement is not referenced by any collected test's `req` marker;
@@ -108,9 +114,11 @@ This is the mechanism behind `00-overview.md` §4.4.
   `homeassistant/status`.
 * **TEST-19** Root helper tests (`can-up`, `recover`, USB reset; see `09-service.md`) MUST run
   unprivileged against a fake filesystem tree: a temporary root holding `sys/class/net/…`,
-  `sys/bus/usb/devices/…` and `dev/bus/usb/…`, selected by the test-only root overrides `SYSFS_ROOT` and
-  `DEV_ROOT` (SVC-18), which are not part of the `08-configuration.md` interface. External commands (`ip`, `usbreset`) MUST
-  be replaced by fakes on `PATH` that record their argv and return scripted output.
+  `sys/bus/usb/devices/…` and `dev/bus/usb/…`, selected by the test-only root overrides
+  `SYSFS_ROOT` and `DEV_ROOT` (SVC-18), and a temporary environment file selected by the
+  test-only override `ENV_FILE` (SVC-14), none of which are part of the
+  `08-configuration.md` interface. External commands (`ip`, `usbreset`) MUST be replaced by
+  fakes on `PATH` that record their argv and return scripted output.
 * **TEST-20** A fake `NOTIFY_SOCKET` (a temporary `AF_UNIX` datagram socket) MUST be available
   to assert the `READY=1`, `WATCHDOG=1`, `STATUS=` and `STOPPING=1` datagrams.
 
@@ -171,6 +179,7 @@ time-driven and fault-injectable.
 | `08-configuration.md` (CFG) | `config` | Each variable at both range limits and just outside; every boolean spelling; empty = unset; cross-variable rules; secrets redacted in logs; exit 78 without opening bus or broker; `--check-config` |
 | `09-service.md` (SVC) | helpers, `sdnotify` | `can-up` idempotency (no `ip` calls when already correct); `recover` per `EXIT_STATUS`; USB reset fallback order on the fake tree; sd_notify datagrams and watchdog cadence |
 | `10-installation.md` (INST) | `Makefile`, packaging | Static checks: unit file, udev rule and example env file parse; example env lists every variable in `08-configuration.md` |
+| `12-local-logging.md` (LOG) | `localog`, `app` | Columns equal the MQTT keys; header once, append on restart; nulls as empty fields; UTC day roll; events lines; interval independent of `PUBLISH_INTERVAL_S`; housekeeping gzip and delete at the age boundaries, today's files untouched, idempotent; `OSError` on write (disk full) sets `error` without raising and recovers at the next housekeeping; disabled without `STATE_DIRECTORY`; no `fsync` (static check) |
 
 * **TEST-28** A Hypothesis property test MUST show that no input to `build_poll` other than a
   module number in 1..`module_count` with `module_count` in 1..4 (PROTO-26) produces a frame, and that every produced frame is exactly
@@ -202,10 +211,15 @@ time-driven and fault-injectable.
 * **TEST-33** `make check` MUST run, and fail on the first failure of: `ruff check`,
   `ruff format --check`, `mypy --strict` over `src/` and `tests/`, and `uv run pytest`.
 * **TEST-34** The repository MUST contain `.github/workflows/ci.yml` running `make check` on
-  every push and pull request on `ubuntu-latest`, with uv installed by
-  `astral-sh/setup-uv`, Python 3.14, and `uv sync --frozen`. CI MUST use only the python-can
-  `virtual` interface: no `vcan`, kernel modules or `sudo`.
-* **TEST-35** CI SHOULD start a Mosquitto service container so the `mosquitto` tests run.
+  `ubuntu-latest` for every `push` event (any branch) and every `pull_request` event
+  targeting `main`, with uv installed by `astral-sh/setup-uv`, Python 3.14, and
+  `uv sync --frozen`. CI MUST use only the python-can `virtual` interface: no `vcan`, kernel
+  modules or `sudo`.
+* **TEST-35** CI SHOULD run the `mosquitto` tests in a second job against an
+  `eclipse-mosquitto:1.6` service container on port 1883, with `MQTT_HOST` and `MQTT_PORT`
+  pointing at it. Mosquitto 2.x only accepts anonymous remote connections when given a
+  configuration file, which a GitHub Actions service container cannot be given, so the 1.6
+  image (which allows them by default) is used.
 * **TEST-36** Line coverage of the pure modules (`protocol`, `telemetry`, `alerts`, `health`,
   `discovery`, `config`) SHOULD be at least 90 %.
 
@@ -246,6 +260,8 @@ show can0` and the Home Assistant devices. Times are given by variable name; see
 | 10 | `sudo systemctl stop dyness-b3-bms-mqtt` | Exit 0 within `TimeoutStopSec`; explicit `offline` published; `bus.shutdown()` logged; `recover` does nothing |
 | 11 | Power-cycle the Pi | Service starts on boot without login; `can0` comes up; polls sent; HEALTHY; HA entities return |
 | 12 | 24 h soak in normal operation | No unexpected exits (`NRestarts` 0, `last_exit_code` and `last_exit_result` diagnostics unchanged); RSS from `systemctl status` within TEST-41 and not growing by more than 5 MB between hour 1 and hour 24; average CPU within TEST-41 (`ps -o %cpu,rss`); journal free of repeated warnings |
+| 13 | Local log housekeeping: `sudo ls -l /var/lib/dyness-b3-bms-mqtt/logs`, then create `modules-<date>.csv` dated two days ago and `stack-<date>.csv` dated `LOCAL_LOG_RETENTION_DAYS` + 1 days ago (`sudo touch`), `sudo make restart`, list again | Today's `events-` file exists, and today's `modules-` and `stack-` files have one header line each and rows every `LOCAL_LOG_INTERVAL_S` (`sudo tail`); values match the MQTT state for the same `ts`; after the restart the two-day-old file is gzipped (original gone), the over-retention file is deleted, today's files are untouched and still have a single header; `local_log` shows `ok` in HA |
+| 14 | Disk full: check `sudo tune2fs -l` on the root device shows a non-zero reserved block count (so root and the journal keep working), fill the root filesystem for the service user (`df -B1 /` for `Avail`, then `sudo fallocate -l <Avail> /var/tmp/fill`), wait two `LOCAL_LOG_INTERVAL_S`, then `sudo rm /var/tmp/fill` | While full: exactly one `ERROR` line naming the log file and the error; `local_log` shows `error`; module, stack and service state keep publishing; no exit or health change; watchdog fed. After freeing space: `local_log` back to `ok` and `local log recovered` logged at the next hourly housekeeping; rows resume; after `sudo make restart` the service starts with `local_log` `ok` (LOG-22) |
 
 ## 11. Performance
 

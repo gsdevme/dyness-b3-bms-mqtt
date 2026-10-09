@@ -193,6 +193,7 @@ module number.
   | `last_exit_result` | string | — | no `last_exit.json`, or its `result` is `null` | `result` in `last_exit.json`: systemd `SERVICE_RESULT` (SVC-15) |
   | `uptime_s` | integer | s | never | Process uptime from the monotonic clock |
   | `mqtt_reconnects` | integer | — | never | MQTT-07 |
+  | `local_log` | string: `ok`, `disabled`, `error` | — | never | Local logging status (`12-local-logging.md`, LOG-21) |
 
 ## 5. Cadence
 

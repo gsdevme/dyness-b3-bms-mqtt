@@ -19,6 +19,8 @@ In scope:
 * Publishing per-module, per-stack and per-service state to MQTT at a configurable interval.
 * Home Assistant device-based MQTT discovery for every published value.
 * In-service alert evaluation published as Home Assistant `binary_sensor` entities.
+* A local daily CSV history of module and stack values, with an events file, kept on the Pi
+  with compression and retention.
 * Running unattended as a systemd service that restarts, recovers the CAN adapter, and
   reports its own health. "Always runs" is a primary requirement.
 * A `Makefile` that installs everything onto a stock Raspberry Pi OS (64-bit) image.
@@ -80,6 +82,7 @@ number and is marked `(withdrawn)`.
 | `09-service.md` | `SVC` |
 | `10-installation.md` | `INST` |
 | `11-testing.md` | `TEST` |
+| `12-local-logging.md` | `LOG` |
 
 ### 4.2 Requirement language
 
@@ -134,6 +137,7 @@ A spec MUST NOT restate a default value that `08-configuration.md` owns.
 | `09-service.md` | systemd unit, watchdog, root helpers, udev rule, USB reset |
 | `10-installation.md` | Makefile targets, paths, uv and Python 3.14, idempotency |
 | `11-testing.md` | Simulated stack, fakes, capture replay, traceability, hardware acceptance |
+| `12-local-logging.md` | Local CSV and events history on the Pi, daily files, compression, retention, write faults |
 
 ## 6. Source material
 

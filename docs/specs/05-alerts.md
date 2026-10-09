@@ -55,8 +55,9 @@ variables owned by `08-configuration.md`.
   `cells_mv` when `cells_fresh` is true and at least one entry is non-`None`, otherwise
   `cell_min_mv` (from `0x22`). The on condition is `input < ALERT_CELL_LOW_MV`. Unknown when
   neither source is available.
-* **ALERT-06** `current_imbalance` (stack): with `I_m` the `current_a` of module `m` for
-  `m` = 1..`MODULE_COUNT`, `N` = `MODULE_COUNT` and `mean = Σ I_m / N`:
+* **ALERT-06** `current_imbalance` (stack): `imbalance_pct` MUST be computed as below, with
+  `I_m` the `current_a` of module `m` for `m` = 1..`MODULE_COUNT`, `N` = `MODULE_COUNT` and
+  `mean = Σ I_m / N`:
 
   ```
   imbalance_pct = max over m of |I_m − mean| / |mean| × 100
@@ -90,7 +91,7 @@ variables owned by `08-configuration.md`.
 ## 3. Hysteresis
 
 * **ALERT-11** For a debounced alert with threshold `T`, `H = ALERT_HYSTERESIS_PCT` and
-  `M = ALERT_CELL_LOW_HYSTERESIS_MV`:
+  `M = ALERT_CELL_LOW_HYSTERESIS_MV`, the on and clear conditions MUST be:
 
   | Alert type | On condition | Clear condition |
   |---|---|---|
