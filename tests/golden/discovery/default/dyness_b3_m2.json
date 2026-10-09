@@ -1,0 +1,539 @@
+{
+  "payload": {
+    "availability": [
+      {
+        "payload_available": "online",
+        "payload_not_available": "offline",
+        "topic": "dyness_b3/status"
+      },
+      {
+        "payload_available": "online",
+        "payload_not_available": "offline",
+        "topic": "dyness_b3/module/2/availability"
+      }
+    ],
+    "availability_mode": "all",
+    "components": {
+      "alert_cell_low": {
+        "device_class": "problem",
+        "expire_after": 35,
+        "name": "Low cell alert",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_alert_cell_low",
+        "value_template": "{{ None if value_json.alert_cell_low is none else ('ON' if value_json.alert_cell_low else 'OFF') }}"
+      },
+      "alert_cell_spread": {
+        "device_class": "problem",
+        "expire_after": 35,
+        "name": "Cell spread alert",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_alert_cell_spread",
+        "value_template": "{{ None if value_json.alert_cell_spread is none else ('ON' if value_json.alert_cell_spread else 'OFF') }}"
+      },
+      "balancing": {
+        "device_class": "running",
+        "expire_after": 35,
+        "name": "Balancing",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_balancing",
+        "value_template": "{{ None if value_json.balancing is none else ('ON' if value_json.balancing else 'OFF') }}"
+      },
+      "bcast_age_s": {
+        "device_class": "duration",
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 35,
+        "name": "Broadcast age",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_bcast_age_s",
+        "unit_of_measurement": "s",
+        "value_template": "{{ value_json.bcast_age_s }}"
+      },
+      "bms_alarm": {
+        "device_class": "problem",
+        "expire_after": 35,
+        "json_attributes_template": "{{ {'active_flags': value_json.bms_alarm_flags} | tojson }}",
+        "json_attributes_topic": "dyness_b3/module/2/state",
+        "name": "BMS alarm",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_bms_alarm",
+        "value_template": "{{ None if value_json.bms_alarm is none else ('ON' if value_json.bms_alarm else 'OFF') }}"
+      },
+      "bms_protection": {
+        "device_class": "problem",
+        "expire_after": 35,
+        "json_attributes_template": "{{ {'active_flags': value_json.bms_protection_flags} | tojson }}",
+        "json_attributes_topic": "dyness_b3/module/2/state",
+        "name": "BMS protection",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_bms_protection",
+        "value_template": "{{ None if value_json.bms_protection is none else ('ON' if value_json.bms_protection else 'OFF') }}"
+      },
+      "cell_01_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 1 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_01_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_01_mv }}"
+      },
+      "cell_02_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 2 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_02_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_02_mv }}"
+      },
+      "cell_03_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 3 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_03_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_03_mv }}"
+      },
+      "cell_04_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 4 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_04_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_04_mv }}"
+      },
+      "cell_05_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 5 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_05_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_05_mv }}"
+      },
+      "cell_06_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 6 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_06_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_06_mv }}"
+      },
+      "cell_07_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 7 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_07_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_07_mv }}"
+      },
+      "cell_08_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 8 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_08_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_08_mv }}"
+      },
+      "cell_09_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 9 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_09_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_09_mv }}"
+      },
+      "cell_10_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 10 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_10_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_10_mv }}"
+      },
+      "cell_11_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 11 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_11_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_11_mv }}"
+      },
+      "cell_12_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 12 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_12_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_12_mv }}"
+      },
+      "cell_13_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 13 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_13_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_13_mv }}"
+      },
+      "cell_14_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 14 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_14_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_14_mv }}"
+      },
+      "cell_15_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell 15 voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_15_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_15_mv }}"
+      },
+      "cell_age_s": {
+        "device_class": "duration",
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 35,
+        "name": "Cell data age",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_cell_age_s",
+        "unit_of_measurement": "s",
+        "value_template": "{{ value_json.cell_age_s }}"
+      },
+      "cell_avg_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Average cell voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_avg_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_avg_mv }}"
+      },
+      "cell_max_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Highest cell voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_max_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_max_mv }}"
+      },
+      "cell_max_no": {
+        "expire_after": 35,
+        "name": "Highest cell",
+        "platform": "sensor",
+        "unique_id": "dyness_b3_m2_cell_max_no",
+        "value_template": "{{ value_json.cell_max_no }}"
+      },
+      "cell_min_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Lowest cell voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cell_min_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.cell_min_mv }}"
+      },
+      "cell_min_no": {
+        "expire_after": 35,
+        "name": "Lowest cell",
+        "platform": "sensor",
+        "unique_id": "dyness_b3_m2_cell_min_no",
+        "value_template": "{{ value_json.cell_min_no }}"
+      },
+      "cells_fresh": {
+        "entity_category": "diagnostic",
+        "expire_after": 35,
+        "name": "Cell data fresh",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_cells_fresh",
+        "value_template": "{{ None if value_json.cells_fresh is none else ('ON' if value_json.cells_fresh else 'OFF') }}"
+      },
+      "chg_limit_a": {
+        "device_class": "current",
+        "expire_after": 35,
+        "name": "Charge current limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_chg_limit_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.chg_limit_a }}"
+      },
+      "chg_mos_on": {
+        "device_class": "power",
+        "expire_after": 35,
+        "name": "Charge MOS",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_chg_mos_on",
+        "value_template": "{{ None if value_json.chg_mos_on is none else ('ON' if value_json.chg_mos_on else 'OFF') }}"
+      },
+      "current_a": {
+        "device_class": "current",
+        "expire_after": 35,
+        "name": "Current",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_current_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.current_a }}"
+      },
+      "cycles": {
+        "expire_after": 35,
+        "name": "Cycles",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_cycles",
+        "value_template": "{{ value_json.cycles }}"
+      },
+      "dis_limit_a": {
+        "device_class": "current",
+        "expire_after": 35,
+        "name": "Discharge current limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_dis_limit_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.dis_limit_a }}"
+      },
+      "dis_mos_on": {
+        "device_class": "power",
+        "expire_after": 35,
+        "name": "Discharge MOS",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "dyness_b3_m2_dis_mos_on",
+        "value_template": "{{ None if value_json.dis_mos_on is none else ('ON' if value_json.dis_mos_on else 'OFF') }}"
+      },
+      "energy_kwh": {
+        "device_class": "energy",
+        "expire_after": 35,
+        "name": "Lifetime energy throughput",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "suggested_display_precision": 2,
+        "unique_id": "dyness_b3_m2_energy_kwh",
+        "unit_of_measurement": "kWh",
+        "value_template": "{{ value_json.energy_kwh }}"
+      },
+      "flags_raw": {
+        "entity_category": "diagnostic",
+        "expire_after": 35,
+        "name": "BMS flags raw",
+        "platform": "sensor",
+        "unique_id": "dyness_b3_m2_flags_raw",
+        "value_template": "{{ value_json.flags_raw }}"
+      },
+      "pack_v": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Pack voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 2,
+        "unique_id": "dyness_b3_m2_pack_v",
+        "unit_of_measurement": "V",
+        "value_template": "{{ value_json.pack_v }}"
+      },
+      "soc": {
+        "device_class": "battery",
+        "expire_after": 35,
+        "name": "State of charge",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_soc",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.soc }}"
+      },
+      "soh": {
+        "expire_after": 35,
+        "name": "State of health",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_soh",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.soh }}"
+      },
+      "spread_mv": {
+        "device_class": "voltage",
+        "expire_after": 35,
+        "name": "Cell spread",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "dyness_b3_m2_spread_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.spread_mv }}"
+      },
+      "temp_1_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Temperature 1",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_1_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_1_c }}"
+      },
+      "temp_2_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Temperature 2",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_2_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_2_c }}"
+      },
+      "temp_3_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Temperature 3",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_3_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_3_c }}"
+      },
+      "temp_board_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Board temperature",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_board_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_board_c }}"
+      },
+      "temp_max_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Highest temperature",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_max_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_max_c }}"
+      },
+      "temp_min_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "Lowest temperature",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_min_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_min_c }}"
+      },
+      "temp_mos_c": {
+        "device_class": "temperature",
+        "expire_after": 35,
+        "name": "MOS temperature",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "dyness_b3_m2_temp_mos_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_mos_c }}"
+      }
+    },
+    "device": {
+      "identifiers": [
+        "dyness_b3_m2"
+      ],
+      "manufacturer": "Dyness",
+      "model": "B3",
+      "name": "Dyness B3 Module 2",
+      "via_device": "dyness_b3_stack"
+    },
+    "origin": {
+      "name": "dyness-b3-bms-mqtt",
+      "support_url": "https://github.com/gsdevme/dyness-b3-bms-mqtt",
+      "sw_version": "0.1.0"
+    },
+    "qos": 0,
+    "state_topic": "dyness_b3/module/2/state"
+  },
+  "topic": "homeassistant/device/dyness_b3_m2/config"
+}

@@ -13,7 +13,12 @@ from tests.fakes.clock import FakeClock
 from tests.fakes.notify import NotifySocket
 from tests.support.txguard import TxGuard
 
-pytest_plugins = ["pytester", "tests.plugins.markers", "tests.plugins.reqtrace"]
+pytest_plugins = [
+    "pytester",
+    "tests.plugins.golden",
+    "tests.plugins.markers",
+    "tests.plugins.reqtrace",
+]
 
 _channel_numbers = itertools.count(1)
 
