@@ -69,6 +69,10 @@ class Harness:
             None,
         )
 
+    def connect_fail(self) -> None:
+        """Run ``on_connect_fail`` as paho's thread would after a failed TCP or TLS connect."""
+        self.client.on_connect_fail(self.client, None)
+
     def message(self, topic: str, payload: bytes) -> None:
         """Run ``on_message`` for a message on ``topic``."""
         message = paho.MQTTMessage(topic=topic.encode())
@@ -218,7 +222,12 @@ def test_callbacks_only_set_events(caplog: pytest.LogCaptureFixture) -> None:
         for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name.startswith("_on_")
     ]
-    assert {c.name for c in callbacks} == {"_on_connect", "_on_disconnect", "_on_message"}
+    assert {c.name for c in callbacks} == {
+        "_on_connect",
+        "_on_connect_fail",
+        "_on_disconnect",
+        "_on_message",
+    }
     for callback in callbacks:
         called = {
             node.func.attr
@@ -226,6 +235,29 @@ def test_callbacks_only_set_events(caplog: pytest.LogCaptureFixture) -> None:
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         }
         assert called <= {"set", "clear", "add", "append", "_notice", "is_set"}, called
+
+
+@pytest.mark.req("MQTT-05", "MQTT-06")
+def test_connect_fail_logged_warning_on_main_thread(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    h = started(make_settings(MQTT_HOST="no-such-host.invalid", MQTT_PORT="8883"))
+    caplog.clear()
+    before = len(h.client.mock_calls)
+
+    worker = threading.Thread(target=h.connect_fail)
+    worker.start()
+    worker.join()
+    assert caplog.records == []
+    assert len(h.client.mock_calls) == before
+    assert not h.publisher.connected
+
+    assert h.publisher.take_events() == set()
+    assert [(r.levelname, r.getMessage()) for r in caplog.records] == [
+        ("WARNING", "mqtt connect to no-such-host.invalid:8883 failed"),
+    ]
+    assert caplog.records[0].threadName == threading.current_thread().name
+    assert h.publisher.take_events() == set()
+    assert len(caplog.records) == 1
 
 
 @pytest.mark.req("MQTT-06")
@@ -256,8 +288,24 @@ def test_failures_never_raise(caplog: pytest.LogCaptureFixture) -> None:
 
     rejected = started()
     rejected.connect()
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
     rejected.client.publish.return_value.rc = paho.MQTT_ERR_QUEUE_SIZE
     rejected.publisher.publish("dyness_b3/stack/state", "{}", qos=0, retain=False)
+    rejected.client.publish.return_value.rc = paho.MQTT_ERR_NO_CONN
+    rejected.publisher.publish("dyness_b3/stack/state", "{}", qos=0, retain=False)
+    assert [(r.levelname, r.getMessage()) for r in caplog.records] == [
+        (
+            "WARNING",
+            "mqtt publish to dyness_b3/stack/state dropped: "
+            + paho.error_string(paho.MQTT_ERR_QUEUE_SIZE),
+        ),
+        (
+            "DEBUG",
+            "mqtt publish to dyness_b3/stack/state not sent: "
+            + paho.error_string(paho.MQTT_ERR_NO_CONN),
+        ),
+    ]
     rejected.client.publish.return_value.wait_for_publish.side_effect = RuntimeError("no conn")
     rejected.publisher.stop()
     rejected.client.disconnect.assert_called_once_with()
