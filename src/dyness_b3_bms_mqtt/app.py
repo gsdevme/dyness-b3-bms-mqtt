@@ -9,9 +9,12 @@ configuration (exit 78 without touching the bus or the broker, CFG-03) and runs 
 fixed :data:`~dyness_b3_bms_mqtt.canbus.RECV_TIMEOUT_S` (or idles that long while the bus is
 closed after a fault), handles the MQTT events, steps the health machine and carries out its
 actions in order, evaluates alerts every :data:`ALERT_INTERVAL_S`, publishes on the
-``PUBLISH_INTERVAL_S`` schedule, queries the link state every
-:data:`LINK_STATE_INTERVAL_S` and finally feeds the systemd watchdog, so only a completed
-iteration can keep the service alive (HEALTH-32).
+``PUBLISH_INTERVAL_S`` schedule, appends the local history every ``LOCAL_LOG_INTERVAL_S``
+and runs its housekeeping every :data:`~dyness_b3_bms_mqtt.localog.HOUSEKEEPING_INTERVAL_S`,
+queries the link state every :data:`LINK_STATE_INTERVAL_S` and finally feeds the systemd
+watchdog, so only a completed iteration can keep the service alive (HEALTH-32). Health
+transitions, alert changes, polls and the exit are logged and also appended to the local
+events file (LOG-09).
 
 Everything with a side effect outside the process comes from :class:`Runtime`: the clocks,
 the sleep, the random source, the environment, the transport and the publisher. Tests build
@@ -65,6 +68,7 @@ from dyness_b3_bms_mqtt.health import (
     Transition,
 )
 from dyness_b3_bms_mqtt.linkstate import LinkState, unknown_link_state
+from dyness_b3_bms_mqtt.localog import HOUSEKEEPING_INTERVAL_S, LocalLog
 from dyness_b3_bms_mqtt.logsetup import configure_logging
 from dyness_b3_bms_mqtt.mqtt import OFFLINE, ONLINE, MqttEvent, PahoPublisher, Publisher
 from dyness_b3_bms_mqtt.payloads import (
@@ -176,6 +180,9 @@ class App:
         self._publisher = runtime.publisher_factory(settings)
         self._telemetry = TelemetryStore(settings)
         self._alerts = alerts.AlertState.initial(settings.module_count)
+        self._history = LocalLog(settings, self._store.directory, runtime.wall)
+        self._next_history = 0.0
+        self._next_housekeeping = 0.0
         self._thresholds = alerts.AlertThresholds.from_settings(settings)
         self._next_alerts = 0.0
         self._counters = FrameCounters()
@@ -210,9 +217,11 @@ class App:
         try:
             code = self._serve()
         except Exception:
-            _log.exception("unhandled exception; exiting with status %d", EXIT_CRASH)
+            message = f"unhandled exception; exiting with status {EXIT_CRASH}"
+            _log.exception("%s", message)
             self._ignore_signals()
             self._notifier.stopping()
+            self._close_history(message)
             code = EXIT_CRASH
         finally:
             self._transport.close()
@@ -224,12 +233,12 @@ class App:
         self._start()
         while True:
             if self._stop_requested:
-                _log.info("stopping on %s: exit status %d", self._stop_cause(), EXIT_OK)
-                return self._clean_stop(EXIT_OK, None)
+                message = f"stopping on {self._stop_cause()}: exit status {EXIT_OK}"
+                return self._clean_stop(EXIT_OK, None, message)
             exit_action = self._iterate()
             if exit_action is not None:
-                _log.info("exiting with status %d: %s", exit_action.code, exit_action.reason)
-                return self._clean_stop(exit_action.code, exit_action.reason)
+                code, reason = exit_action.code, exit_action.reason
+                return self._clean_stop(code, reason, f"exiting with status {code}: {reason}")
 
     def _stop_cause(self) -> str:
         """Return the name of the signal that asked for the stop, or ``stop request``."""
@@ -241,9 +250,15 @@ class App:
             return f"signal {self._stop_signal}"
 
     def _start(self) -> None:
-        """Open the bus, start the health machine and MQTT, then tell systemd (SVC-06)."""
+        """Run housekeeping, open the bus, start health and MQTT, then tell systemd (SVC-06).
+
+        Housekeeping comes first so the log directory exists before any write (LOG-13).
+        """
         now = self._clock()
         self._started_at = now
+        self._history.housekeep(self._runtime.wall())
+        self._next_housekeeping = now + HOUSEKEEPING_INTERVAL_S
+        self._next_history = now + self._settings.local_log_interval_s
         open_ok, detail = self._first_open()
         self._health.start(self._clock(), open_ok, detail)
         self._publisher.start()
@@ -273,6 +288,8 @@ class App:
         now = self._clock()
         self._evaluate_alerts(now)
         self._publish_periodic(now)
+        self._write_history(now)
+        self._housekeep(now)
         self._query_link(now)
         self._notifier.watchdog(self._clock())
         return None
@@ -299,7 +316,7 @@ class App:
         self._alerts = alerts.evaluate(snapshot, previous, now, self._thresholds)
         found = alerts.changes(previous, self._alerts)
         for change in found:
-            _log.info("%s", alerts.format_change(change, self._thresholds))
+            self._event(alerts.format_change(change, self._thresholds))
         if found:
             modules = sorted({c.scope for c in found if isinstance(c.scope, int)})
             self._publish_states(now, modules, service=False)
@@ -367,7 +384,7 @@ class App:
     def _transition(self, action: Transition) -> None:
         """Log a state change, publish the service state and update ``STATUS=`` (SVC-08)."""
         old = "none" if action.old is None else action.old.value
-        _log.info("health: %s -> %s (%s)", old, action.new.value, action.reason)
+        self._event(f"health: {old} -> {action.new.value} ({action.reason})")
         summary = action.reason.split(": ", 1)[-1]
         self._notifier.status(f"{action.new.name}: {summary}")
         self._publish_service(self._clock())
@@ -400,7 +417,7 @@ class App:
             self._bus_fault(fault)
             return
         self._polls_sent += 1
-        _log.info("poll module %d", module)
+        self._event(f"poll module {module}")
 
     def _reopen(self) -> None:
         """Close, wait and reopen the bus, then report the result (the ``ReopenBus`` action)."""
@@ -459,11 +476,28 @@ class App:
         """Publish all state on the ``PUBLISH_INTERVAL_S`` schedule (MQTT-19)."""
         if now < self._next_publish:
             return
-        interval = self._settings.publish_interval_s
-        self._next_publish += interval
-        if self._next_publish <= now:
-            self._next_publish = now + interval
+        self._next_publish = _next_due(self._next_publish, now, self._settings.publish_interval_s)
         self._publish_states(now, self._modules)
+
+    def _write_history(self, now: float) -> None:
+        """Append the history rows every ``LOCAL_LOG_INTERVAL_S``, connected or not (LOG-11)."""
+        if now < self._next_history:
+            return
+        interval = self._settings.local_log_interval_s
+        self._next_history = _next_due(self._next_history, now, interval)
+        self._history.write(self._snapshot(now), self._alerts, self._runtime.wall())
+
+    def _housekeep(self, now: float) -> None:
+        """Run the local history housekeeping every ``HOUSEKEEPING_INTERVAL_S`` (LOG-13)."""
+        if now < self._next_housekeeping:
+            return
+        self._next_housekeeping = _next_due(self._next_housekeeping, now, HOUSEKEEPING_INTERVAL_S)
+        self._history.housekeep(self._runtime.wall())
+
+    def _event(self, message: str) -> None:
+        """Log ``message`` at ``INFO`` and append it to the local events file (LOG-09)."""
+        _log.info("%s", message)
+        self._history.event(self._runtime.wall(), message)
 
     def _publish_states(self, now: float, modules: Iterable[int], *, service: bool = True) -> None:
         """Publish the given module states, the stack state and optionally the service state."""
@@ -532,7 +566,7 @@ class App:
             last_exit_result=None if last_exit is None else last_exit.result,
             uptime_s=now - self._started_at,
             mqtt_reconnects=max(self._connects - 1, 0),
-            local_log="disabled",
+            local_log=self._history.status,
         )
 
     def _publish(self, topic: str, payload: str, *, qos: int, retain: bool = False) -> None:
@@ -540,17 +574,27 @@ class App:
         if self._publisher.connected:
             self._publisher.publish(topic, payload, qos=qos, retain=retain)
 
-    def _clean_stop(self, code: int, reason: str | None) -> int:
-        """Run the SVC-11 steps up to the bus shutdown and return ``code``.
+    def _clean_stop(self, code: int, reason: str | None, message: str) -> int:
+        """Log ``message``, run the SVC-11 steps up to the bus shutdown and return ``code``.
 
         ``STOPPING=1`` goes first; then the retained ``offline`` status and the final service
-        state are published. :meth:`run` then shuts the bus down and stops the publisher.
+        state are published and the local history is closed with ``message`` as its exit
+        event (LOG-10). :meth:`run` then shuts the bus down and stops the publisher.
         """
+        _log.info("%s", message)
         self._ignore_signals()
         self._notifier.stopping()
         self._publish(self._topics.status, OFFLINE, qos=RETAINED_QOS, retain=True)
         self._publish_service(self._clock(), reason)
+        self._close_history(message)
         return code
+
+    def _close_history(self, message: str) -> None:
+        """Close the local history with its exit event; a failure must not mask the exit."""
+        try:
+            self._history.close(message)
+        except Exception:
+            _log.exception("local log close failed")
 
     def _ignore_signals(self) -> None:
         """Ignore further stop signals while shutting down (SVC-12)."""
@@ -564,6 +608,12 @@ class App:
             self._publisher.stop()
         except Exception:
             _log.exception("mqtt stop failed")
+
+
+def _next_due(due: float, now: float, interval: float) -> float:
+    """Return the deadline one ``interval`` after ``due``, or after ``now`` if that has passed."""
+    due += interval
+    return due if due > now else now + interval
 
 
 def _detail(fault: TransportFault) -> str:
