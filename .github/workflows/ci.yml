@@ -1,0 +1,50 @@
+# Lint, types and tests (TEST-34) plus the real-broker tests (TEST-35).
+name: ci
+
+on:
+  # Every push to any branch; no branch filter on purpose.
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # `make check`: ruff, ruff format, mypy --strict and pytest (TEST-33).
+  # Tests use python-can's in-process `virtual` interface only, so the runner needs no
+  # virtual CAN kernel module and no root.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          # Matches .python-version; uv downloads a managed CPython 3.14.
+          python-version: "3.14"
+      # --frozen installs exactly what uv.lock records and never re-resolves (INST-11).
+      - run: uv sync --frozen
+      - run: make check
+
+  # Tests marked `mosquitto` against a real broker. The 1.6 image is used because
+  # Mosquitto 2.x only accepts anonymous remote clients with a configuration file, which
+  # a service container cannot be given; 1.6 accepts them by default.
+  mqtt:
+    runs-on: ubuntu-latest
+    services:
+      mosquitto:
+        image: eclipse-mosquitto:1.6
+        ports:
+          - "1883:1883"
+    env:
+      # Read by tests/plugins/markers.py to find the broker; the service container's
+      # port is published on the runner's localhost.
+      MQTT_HOST: localhost
+      MQTT_PORT: "1883"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest -m mosquitto
