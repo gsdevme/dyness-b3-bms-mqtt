@@ -28,8 +28,8 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
 
 ## 2. Freshness
 
-* **TEL-04** Every value belongs to one freshness group and is fresh only while its source
-  frame is fresh:
+* **TEL-04** Every value MUST belong to exactly one freshness group below and MUST be fresh
+  only while its source frame is fresh:
 
   | Group | Frames | Age used | Stale when |
   |---|---|---|---|

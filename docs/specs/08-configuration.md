@@ -125,11 +125,21 @@ to variables by name and MUST NOT restate defaults.
   transition, every poll sent, broker connect/disconnect, discovery (re)publish, every alert
   change, and the reason for every exit. Per-frame logging is `DEBUG` only.
 
-## 9. Cross-variable validation
+## 9. Local logging
+
+| Variable | Type | Default | Validation / meaning |
+|---|---|---|---|
+| `LOCAL_LOG` | bool | `true` | Keep the local CSV and events history under `$STATE_DIRECTORY/logs` (`12-local-logging.md`) |
+| `LOCAL_LOG_INTERVAL_S` | duration | `10` | 1..300. Interval between history rows, independent of `PUBLISH_INTERVAL_S` |
+| `LOCAL_LOG_RETENTION_DAYS` | int | `90` | 1..3650. Daily files older than this many days are deleted |
+| `LOCAL_LOG_COMPRESS_AFTER_DAYS` | int | `1` | 0..3650. At most `LOCAL_LOG_RETENTION_DAYS` (CFG-12). Daily files older than this many days are gzipped; today's file never is |
+
+## 10. Cross-variable validation
 
 * **CFG-12** `POLL_BACKOFF_S ≥ POLL_RETRY_S`, `BUS_SILENCE_S ≥ MODULE_STALE_S`,
-  `DEAD_USB_RESET_S ≥ DEAD_RETRY_S`, and (`MQTT_PASSWORD` set ⇒ `MQTT_USERNAME` set) MUST
-  hold; otherwise exit 78 as in CFG-03.
+  `DEAD_USB_RESET_S ≥ DEAD_RETRY_S`, `LOCAL_LOG_COMPRESS_AFTER_DAYS ≤ LOCAL_LOG_RETENTION_DAYS`,
+  and (`MQTT_PASSWORD` set ⇒ `MQTT_USERNAME` set) MUST hold; otherwise exit 78 as in
+  CFG-03.
 * **CFG-13** `CAN_LISTEN_ONLY=true` with `CAN_INTERFACE=socketcan` relies on `can-up`
   having set the link to listen-only (see `09-service.md`); the service MUST additionally
   refuse to transmit regardless of link mode.

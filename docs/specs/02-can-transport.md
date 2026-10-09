@@ -32,9 +32,9 @@ Variables referenced here (`CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_R
   `RxErrorFrame(error_class: int, data: bytes, at: float)` are immutable. `at` is the
   injected monotonic clock at the moment `recv` obtained the message, never python-can's
   `msg.timestamp` (whose epoch differs between interfaces). `LinkState` is defined in §7.
-* **CAN-02** The python-can implementation MUST take the settings object, the monotonic clock
-  and a sleep function as constructor arguments (the sleep is used by `reopen`) and MUST NOT
-  read the environment itself.
+* **CAN-02** The python-can implementation (`PythonCanTransport`) MUST take the settings
+  object, the monotonic clock and a sleep function as constructor arguments (the sleep is
+  used by `reopen`) and MUST NOT read the environment itself.
 * **CAN-03** The repository MUST provide a test double implementing `CanTransport` that
   records every `send_poll` call and lets a test script received frames, error frames,
   timeouts and `TransportFault`s. The real implementation over python-can's `virtual`
@@ -132,13 +132,14 @@ The acceptance set is:
 ## 5. Send
 
 * **CAN-19** `send_poll(module)` MUST be the transport's only sending method and the only
-  place in the package that calls python-can's `send` (PROTO-30). It MUST obtain the frame
-  from `protocol.build_poll(module, MODULE_COUNT)`, letting its `ValueError` propagate.
-* **CAN-20** Immediately before `bus.send`, `send_poll` MUST re-check that the frame matches
-  the poll pattern (PROTO-27) and raise `ValueError` otherwise, then send
+  place in the package that constructs a `can.Message` or calls python-can's `send`
+  (PROTO-30). It MUST obtain the frame from `protocol.build_poll(module, MODULE_COUNT)`,
+  letting its `ValueError` propagate.
+* **CAN-20** Immediately before `bus.send`, `send_poll` MUST re-check that the `PollFrame`
+  matches the poll pattern (PROTO-27) and raise `ValueError` otherwise, then build
   `can.Message(arbitration_id=frame.arbitration_id, is_extended_id=True, data=frame.data)`
-  with a finite send timeout of at most 0.5 s, so a full transmit queue cannot stall the
-  main loop.
+  from it and send that message with a finite send timeout of at most 0.5 s, so a full
+  transmit queue cannot stall the main loop.
 * **CAN-21** Exceptions from `bus.send` MUST be mapped per §8 and raised as
   `TransportFault(op="send", …)`. In particular an `OSError` (or a python-can exception
   caused by one) MUST become a bus-exception event for the health machine, never an

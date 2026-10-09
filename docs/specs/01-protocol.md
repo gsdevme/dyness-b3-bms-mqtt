@@ -276,9 +276,11 @@ data = 01 00 00 00 00 00 00 00      DLC 8
   MUST run the application with a recording fake transport through start-up, retries and
   recovery and assert that every frame handed to the transport for sending matches the poll
   pattern for a module in 1..`MODULE_COUNT`.
-* **PROTO-30** A test MUST fail if any module in the package other than `protocol.py`
-  constructs a `can.Message` intended for sending, or if any call to a python-can `send`
-  exists outside the transport's `send_poll` (static check over the source tree).
+* **PROTO-30** A test MUST fail if any `can.Message(` construction or any call to a
+  python-can `send` exists in the package outside `PythonCanTransport.send_poll` in
+  `canbus.py` (static check over the source tree). `send_poll` builds its one `can.Message`
+  from the `PollFrame` returned by `build_poll` (CAN-20); `protocol.py` produces only the
+  `PollFrame` (PROTO-25) and constructs no `can.Message`.
 * **PROTO-31** With `CAN_LISTEN_ONLY=true`, `build_poll` MUST be unreachable at runtime: the
   health machine emits no `Poll` action (see `03-health-and-recovery.md`) and the transport
   refuses to send (see `02-can-transport.md`). A test MUST run the application in

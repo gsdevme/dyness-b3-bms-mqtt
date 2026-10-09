@@ -220,9 +220,9 @@ omitted.
 
 * **HA-12** The stack device MUST also carry these service components. Each MUST override
   `state_topic` with `<B>/service/state` and MUST have `entity_category` `diagnostic`.
-  Only the five that indicate whether the service and bus are working are enabled by
-  default; the rest are counters for troubleshooting and are disabled to keep the recorder
-  quiet.
+  Only the six that indicate whether the service, the bus and the local history are working
+  are enabled by default; the rest are counters for troubleshooting and are disabled to keep
+  the recorder quiet.
 
   | Key | Name | Platform | Device class | Unit | State class | Precision | Template | Enabled |
   |---|---|---|---|---|---|---|---|---|
@@ -231,6 +231,7 @@ omitted.
   | `can_state` | CAN state | sensor | enum | — | — | — | S | yes |
   | `bus_age_s` | Bus age | sensor | duration | s | measurement | 1 | S | yes |
   | `polling_suspended` | Polling suspended | binary_sensor | problem | — | — | — | B | yes |
+  | `local_log` | Local log | sensor | enum | — | — | — | S | yes |
   | `can_berr_tx` | CAN TX error counter | sensor | — | — | measurement | 0 | S | no |
   | `can_berr_rx` | CAN RX error counter | sensor | — | — | measurement | 0 | S | no |
   | `can_restarts` | CAN bus-off restarts | sensor | — | — | total_increasing | 0 | S | no |
@@ -251,7 +252,7 @@ omitted.
 * **HA-13** The `enum` sensors MUST list `options` exactly as the value sets in MQTT-18:
   `health` → `starting`, `healthy`, `degraded`, `stale`, `recovering`, `dead`;
   `can_state` → `error-active`, `error-warning`, `error-passive`, `bus-off`, `stopped`,
-  `down`, `absent`.
+  `down`, `absent`; `local_log` → `ok`, `disabled`, `error`.
 
 ### 5.1 Not exposed as entities
 
