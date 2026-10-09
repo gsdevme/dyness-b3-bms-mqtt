@@ -206,12 +206,12 @@ def test_mosquitto_required_fails_when_unreachable(
     required.stdout.fnmatch_lines(
         [
             f"broker unreachable at 127.0.0.1:{port} and MQTT_REQUIRE_BROKER=1",
-            "FAILED*::test_needs_broker",
+            "FAILED*::test_needs_broker*",
         ]
     )
     assert required.ret == pytest.ExitCode.TESTS_FAILED
     optional.assert_outcomes(skipped=1, passed=1)
-    optional.stdout.fnmatch_lines([f"SKIPPED*broker unreachable at 127.0.0.1:{port}"])
+    optional.stdout.fnmatch_lines([f"SKIPPED*broker unreachable at 127.0.0.1:{port}*"])
 
     with socket.socket() as listening:
         listening.bind(("127.0.0.1", 0))
