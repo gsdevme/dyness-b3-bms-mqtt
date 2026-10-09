@@ -10,6 +10,7 @@ import pytest
 
 from dyness_b3_bms_mqtt.canbus import BusLike, PythonCanTransport
 from tests.fakes.clock import FakeClock
+from tests.fakes.notify import NotifySocket
 from tests.support.txguard import TxGuard
 
 pytest_plugins = ["pytester", "tests.plugins.markers", "tests.plugins.reqtrace"]
@@ -41,6 +42,14 @@ def state_dir(tmp_path: Path) -> Path:
     path = tmp_path / "state"
     path.mkdir()
     return path
+
+
+@pytest.fixture
+def notify_socket() -> Iterator[NotifySocket]:
+    """Yield a fake ``NOTIFY_SOCKET`` bound for this test and close it afterwards (TEST-20)."""
+    sock = NotifySocket()
+    yield sock
+    sock.close()
 
 
 @pytest.fixture(autouse=True)
