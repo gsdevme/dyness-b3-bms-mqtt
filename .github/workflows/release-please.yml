@@ -1,0 +1,24 @@
+# Opens and maintains the release PR from Conventional Commits on main; merging that PR
+# bumps the version in pyproject.toml, updates CHANGELOG.md and tags vX.Y.Z.
+# The "extra-files" entry in release-please-config.json also bumps this package's own
+# version in uv.lock, so the committed lock stays current after a release (INST-11).
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  # Push the release branch and tags, and create the GitHub release.
+  contents: write
+  # Open and update the release PR.
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

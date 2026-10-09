@@ -1,0 +1,19 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "dyness-b3-bms-mqtt",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": true,
+      "pull-request-title-pattern": "build${scope}: release${component} ${version}",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name=='dyness-b3-bms-mqtt')].version"
+        }
+      ]
+    }
+  }
+}
