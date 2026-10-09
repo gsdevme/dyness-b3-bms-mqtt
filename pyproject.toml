@@ -30,7 +30,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+addopts = ["--strict-markers", "--strict-config", "-ra", "--req-strict"]
 markers = [
     "req(*ids): the test verifies the named requirement identifiers (PREFIX-NN)",
     "integration: uses real wall-clock time; may sleep; 10 s per-test timeout",

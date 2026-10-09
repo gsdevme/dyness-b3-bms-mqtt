@@ -111,7 +111,7 @@ def test_markers_registered_and_strict(pytestconfig: pytest.Config) -> None:
     ini = _pyproject()["tool"]["pytest"]["ini_options"]
     names = {line.split(":")[0].split("(")[0].strip() for line in ini["markers"]}
     assert names == {"req", "integration", "mosquitto", "hardware"}
-    assert ini["addopts"] == ["--strict-markers", "--strict-config", "-ra"]
+    assert ini["addopts"] == ["--strict-markers", "--strict-config", "-ra", "--req-strict"]
     assert ini["testpaths"] == ["tests"]
     assert ini["pythonpath"] == ["."]
     registered = {line.split(":")[0].split("(")[0] for line in pytestconfig.getini("markers")}
