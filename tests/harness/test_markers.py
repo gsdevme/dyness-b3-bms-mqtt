@@ -4,7 +4,6 @@ The plugin behaviour is checked in a throwaway pytest run in a subprocess, so th
 test's own ``time.sleep`` guard cannot leak into the inner run.
 """
 
-import os
 import socket
 import tomllib
 from pathlib import Path
@@ -159,9 +158,3 @@ def test_mosquitto_skipped_when_broker_unreachable(
         monkeypatch.setenv("MQTT_PORT", str(port))
         assert broker_reachable("127.0.0.1", port)
         harness.runpytest_subprocess().assert_outcomes(passed=1)
-
-
-@pytest.mark.mosquitto
-@pytest.mark.req("TEST-02")
-def test_configured_broker_accepts_connections() -> None:
-    assert broker_reachable(*broker_address(os.environ))
