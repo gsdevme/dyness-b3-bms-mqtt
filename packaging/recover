@@ -1,0 +1,258 @@
+#!/bin/sh
+# recover: record why the service stopped and recover the CAN link (docs/specs/09-service.md
+# SVC-15..18). Installed as /usr/local/lib/dyness-b3-bms-mqtt/recover next to can-up and run as
+# root by the unit's ExecStopPost=+, with systemd's EXIT_STATUS and SERVICE_RESULT and the
+# unit's EnvironmentFile= variables in the environment.
+#
+# 1. Always write last_exit.json to the state directory first (atomically, mode 0644, so the
+#    dynamic user can read it).
+# 2. Then dispatch on EXIT_STATUS: 75 bounces the link and runs can-up; 76 takes the link down,
+#    runs the USB reset sequence and then can-up; anything else does nothing. Both actions
+#    apply only when CAN_INTERFACE is socketcan.
+#
+# CAN settings are resolved exactly as in can-up: environment, then the environment file
+# (parsed with sed, never sourced), then the docs/specs/08-configuration.md defaults. Every
+# step is logged to stderr, the script always exits 0, and its waits (2 s de-authorised plus
+# at most 16 x 0.5 s for the netdev) keep it inside the 12 s budget of SVC-17.
+#
+# Test seams (not service configuration): ENV_FILE replaces /etc/default/dyness-b3-bms-mqtt,
+# SYSFS_ROOT replaces /sys and DEV_ROOT replaces /dev.
+
+PROG=recover
+ENV_FILE=${ENV_FILE:-/etc/default/dyness-b3-bms-mqtt}
+SYSFS_ROOT=${SYSFS_ROOT:-/sys}
+DEV_ROOT=${DEV_ROOT:-/dev}
+STATE=${STATE_DIRECTORY:-/var/lib/dyness-b3-bms-mqtt}
+CAN_UP=$(dirname "$0")/can-up
+DEAUTHORISED_S=2
+NETDEV_POLLS=16
+NETDEV_POLL_S=0.5
+USBDEVFS_RESET='import fcntl, os, sys; fd = os.open(sys.argv[1], os.O_WRONLY); fcntl.ioctl(fd, 0x5514, 0); os.close(fd)'
+
+# log MESSAGE...: write MESSAGE to stderr, every line prefixed with "$PROG: ".
+log() {
+    printf '%s\n' "$*" | while IFS= read -r line; do
+        printf '%s: %s\n' "$PROG" "$line" >&2
+    done
+}
+
+# unquote VALUE: print VALUE without one layer of matching single or double quotes.
+unquote() {
+    value=$1
+    case $value in
+        \"*\" | \'*\')
+            value=${value#?}
+            value=${value%?}
+            ;;
+    esac
+    printf '%s\n' "$value"
+}
+
+# from_file NAME: print the value of the last NAME=value line of $ENV_FILE, if any.
+from_file() {
+    [ -f "$ENV_FILE" ] && [ -r "$ENV_FILE" ] || return 0
+    value=$(sed -n "/^[[:space:]]*$1[[:space:]]*=/{s/^[^=]*=[[:space:]]*//;s/[[:space:]]*\$//;p;}" \
+        "$ENV_FILE" | tail -n 1)
+    unquote "$value"
+}
+
+# setting NAME DEFAULT: print NAME from the environment, else from $ENV_FILE, else DEFAULT.
+# An empty value counts as unset (CFG-02).
+setting() {
+    value=$(printenv "$1") || value=
+    [ -n "$value" ] || value=$(from_file "$1")
+    [ -n "$value" ] || value=$2
+    printf '%s\n' "$value"
+}
+
+# run COMMAND...: run COMMAND and log it with its result and any output.
+run() {
+    output=$("$@" 2>&1)
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        log "$*: ok"
+    else
+        log "$*: failed with status $status"
+    fi
+    [ -z "$output" ] || log "$output"
+    return "$status"
+}
+
+# write VALUE FILE: write VALUE to the sysfs attribute FILE and log the result.
+write() {
+    if error=$( (printf '%s' "$1" >"$2") 2>&1); then
+        log "wrote $1 to $2"
+        return 0
+    fi
+    log "cannot write $1 to $2: $error"
+    return 1
+}
+
+# decimal TEXT: print TEXT without leading zeros, keeping a final 0.
+decimal() {
+    printf '%s\n' "$1" | sed 's/^0*\([0-9]\)/\1/'
+}
+
+# json_value TEXT: print TEXT as a JSON integer if it is all digits, as a JSON string of its
+# [A-Za-z0-9._+-] characters otherwise, or null if it is empty.
+json_value() {
+    [ -n "$1" ] || {
+        printf 'null\n'
+        return
+    }
+    clean=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9._+-')
+    case $clean in
+        '' | *[!0-9]*) printf '"%s"\n' "$clean" ;;
+        *) decimal "$clean" ;;
+    esac
+}
+
+# write_last_exit JSON: atomically replace $STATE/last_exit.json with JSON, mode 0644.
+write_last_exit() {
+    target=$STATE/last_exit.json
+    if ! temporary=$(mktemp "$STATE/.last_exit.json.XXXXXX" 2>&1); then
+        log "cannot write $target: $temporary"
+        return 1
+    fi
+    if error=$( (printf '%s\n' "$1" >"$temporary" && chmod 0644 "$temporary" &&
+        mv -f "$temporary" "$target") 2>&1); then
+        log "wrote $target: $1"
+        return 0
+    fi
+    rm -f "$temporary"
+    log "cannot write $target: $error"
+    return 1
+}
+
+# run_can_up: run the can-up helper next to this script; it logs for itself.
+run_can_up() {
+    log "running $CAN_UP"
+    "$CAN_UP"
+    log "can-up finished with status $?"
+}
+
+# find_device: set DEVICE to the adapter's USB device directory, from the netdev's device link
+# or else from the first USB device matching CAN_USB_ID (SVC-18 steps 1 and 2).
+find_device() {
+    link=$SYSFS_ROOT/class/net/$CAN_CHANNEL/device
+    if [ -e "$link" ] && interface=$(readlink -f "$link") && [ -n "$interface" ]; then
+        DEVICE=$(dirname "$interface")
+        log "usb device $DEVICE (from $CAN_CHANNEL)"
+        return 0
+    fi
+    wanted=$(printf '%s' "$CAN_USB_ID" | tr '[:upper:]' '[:lower:]')
+    DEVICE=
+    for candidate in "$SYSFS_ROOT"/bus/usb/devices/*; do
+        [ -r "$candidate/idVendor" ] && [ -r "$candidate/idProduct" ] || continue
+        found=$(cat "$candidate/idVendor"):$(cat "$candidate/idProduct")
+        [ "$(printf '%s' "$found" | tr '[:upper:]' '[:lower:]')" = "$wanted" ] || continue
+        if [ -z "$DEVICE" ]; then
+            DEVICE=$(readlink -f "$candidate")
+            log "usb device $DEVICE (matched $wanted; $CAN_CHANNEL absent)"
+        else
+            log "usb device $candidate also matched $wanted; ignored"
+        fi
+    done
+    [ -n "$DEVICE" ] && return 0
+    log "usb device not found"
+    return 1
+}
+
+# reset_ioctl: send USBDEVFS_RESET to the device node (SVC-18 step 3).
+reset_ioctl() {
+    busnum=$(cat "$DEVICE/busnum" 2>/dev/null)
+    devnum=$(cat "$DEVICE/devnum" 2>/dev/null)
+    case $busnum:$devnum in
+        *[!0-9:]* | :* | *:)
+            log "cannot read busnum and devnum of $DEVICE"
+            return 1
+            ;;
+    esac
+    node=$(printf '%s/bus/usb/%03d/%03d' "$DEV_ROOT" "$(decimal "$busnum")" "$(decimal "$devnum")")
+    if command -v usbreset >/dev/null 2>&1; then
+        run usbreset "$node"
+    else
+        run /usr/bin/python3 -c "$USBDEVFS_RESET" "$node"
+    fi
+}
+
+# deauthorise: write 0 then, after a pause, 1 to the device's authorized (SVC-18 step 4).
+deauthorise() {
+    write 0 "$DEVICE/authorized" || return 1
+    log "waiting ${DEAUTHORISED_S} s"
+    sleep "$DEAUTHORISED_S"
+    write 1 "$DEVICE/authorized"
+}
+
+# rebind: unbind and rebind each of the device's interfaces bound to gs_usb (SVC-18 step 5).
+rebind() {
+    driver=$SYSFS_ROOT/bus/usb/drivers/gs_usb
+    bound=
+    failed=
+    for interface in "$DEVICE/$(basename "$DEVICE")":*; do
+        [ -e "$interface/driver" ] || continue
+        [ "$(basename "$(readlink -f "$interface/driver")")" = gs_usb ] || continue
+        bound=yes
+        name=$(basename "$interface")
+        if ! write "$name" "$driver/unbind" || ! write "$name" "$driver/bind"; then
+            failed=yes
+        fi
+    done
+    if [ -z "$bound" ]; then
+        log "no interface of $DEVICE is bound to gs_usb"
+        return 1
+    fi
+    [ -z "$failed" ]
+}
+
+# wait_for_netdev: poll for $CAN_CHANNEL to appear (SVC-18 step 6, shortened per SVC-17).
+wait_for_netdev() {
+    polls=0
+    while [ ! -e "$SYSFS_ROOT/class/net/$CAN_CHANNEL" ] && [ "$polls" -lt "$NETDEV_POLLS" ]; do
+        sleep "$NETDEV_POLL_S"
+        polls=$((polls + 1))
+    done
+    if [ -e "$SYSFS_ROOT/class/net/$CAN_CHANNEL" ]; then
+        log "$CAN_CHANNEL present"
+    else
+        log "$CAN_CHANNEL did not appear after $polls polls of $NETDEV_POLL_S s"
+    fi
+}
+
+# usb_reset: the USB reset sequence of SVC-18; steps 3 to 5 each run only if the previous failed.
+usb_reset() {
+    if find_device; then
+        reset_ioctl || deauthorise || rebind || log "usb reset failed at every step"
+    fi
+    wait_for_netdev
+}
+
+CODE=$(json_value "$EXIT_STATUS")
+write_last_exit "{\"code\": $CODE, \"result\": $(json_value "$SERVICE_RESULT"), \"at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+
+CAN_INTERFACE=$(setting CAN_INTERFACE socketcan)
+CAN_CHANNEL=$(setting CAN_CHANNEL can0)
+CAN_USB_ID=$(setting CAN_USB_ID 1d50:606f)
+
+case $CODE in
+    75 | 76) ;;
+    *)
+        log "exit status ${EXIT_STATUS:-unset}: nothing to do"
+        exit 0
+        ;;
+esac
+if [ "$CAN_INTERFACE" != socketcan ]; then
+    log "exit status $CODE with CAN_INTERFACE=$CAN_INTERFACE: nothing to do"
+    exit 0
+fi
+
+if [ "$CODE" = 75 ]; then
+    log "exit status 75: bouncing $CAN_CHANNEL"
+    run ip link set dev "$CAN_CHANNEL" down
+else
+    log "exit status 76: resetting the USB adapter of $CAN_CHANNEL"
+    run ip link set dev "$CAN_CHANNEL" down || log "ignoring the failed link down"
+    usb_reset
+fi
+run_can_up
+exit 0

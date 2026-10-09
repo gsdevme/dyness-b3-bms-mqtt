@@ -1,0 +1,125 @@
+#!/bin/sh
+# can-up: bring the SocketCAN link up with the configured settings (docs/specs/09-service.md
+# SVC-14). Installed as /usr/local/lib/dyness-b3-bms-mqtt/can-up and run as root by the unit's
+# ExecStartPre=+, by recover, and by the udev rule with the new interface name as $1.
+#
+# Settings come from the environment, then from the environment file, then from the defaults
+# of docs/specs/08-configuration.md (a test compares the `setting` lines with them). The
+# environment file is parsed with sed and never sourced, because it can hold an MQTT_PASSWORD
+# with shell metacharacters. The link is reconfigured only when it differs from the settings,
+# and the script never waits, so it fits in udev's RUN+= time budget.
+#
+# The script always exits 0: failures are logged to stderr (journald) with the command and its
+# output, and a link that is still not up is reported by the service's bus open.
+#
+# Test seams (not service configuration): ENV_FILE replaces /etc/default/dyness-b3-bms-mqtt
+# and SYSFS_ROOT replaces /sys.
+
+PROG=can-up
+ENV_FILE=${ENV_FILE:-/etc/default/dyness-b3-bms-mqtt}
+SYSFS_ROOT=${SYSFS_ROOT:-/sys}
+
+# log MESSAGE...: write MESSAGE to stderr, every line prefixed with "$PROG: ".
+log() {
+    printf '%s\n' "$*" | while IFS= read -r line; do
+        printf '%s: %s\n' "$PROG" "$line" >&2
+    done
+}
+
+# unquote VALUE: print VALUE without one layer of matching single or double quotes.
+unquote() {
+    value=$1
+    case $value in
+        \"*\" | \'*\')
+            value=${value#?}
+            value=${value%?}
+            ;;
+    esac
+    printf '%s\n' "$value"
+}
+
+# from_file NAME: print the value of the last NAME=value line of $ENV_FILE, if any.
+from_file() {
+    [ -f "$ENV_FILE" ] && [ -r "$ENV_FILE" ] || return 0
+    value=$(sed -n "/^[[:space:]]*$1[[:space:]]*=/{s/^[^=]*=[[:space:]]*//;s/[[:space:]]*\$//;p;}" \
+        "$ENV_FILE" | tail -n 1)
+    unquote "$value"
+}
+
+# setting NAME DEFAULT: print NAME from the environment, else from $ENV_FILE, else DEFAULT.
+# An empty value counts as unset (CFG-02).
+setting() {
+    value=$(printenv "$1") || value=
+    [ -n "$value" ] || value=$(from_file "$1")
+    [ -n "$value" ] || value=$2
+    printf '%s\n' "$value"
+}
+
+# run COMMAND...: run COMMAND, logging it with its status and output if it fails.
+run() {
+    output=$("$@" 2>&1)
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        log "$* failed with status $status"
+        [ -z "$output" ] || log "$output"
+    fi
+    return "$status"
+}
+
+# token NAME: print the word after the first word NAME on stdin.
+token() {
+    awk -v name="$1" '{ for (i = 1; i < NF; i++) if ($i == name) { print $(i + 1); exit } }'
+}
+
+# is_correct DETAILS: succeed if `ip -details link show` output DETAILS shows the link up
+# with the wanted bitrate, restart-ms and listen-only mode.
+is_correct() {
+    printf '%s\n' "$1" | head -n 1 | grep -Eq '<([^>]*,)?UP(,[^>]*)?>' || return 1
+    [ "$(printf '%s\n' "$1" | token bitrate)" = "$CAN_BITRATE" ] || return 1
+    [ "$(printf '%s\n' "$1" | token restart-ms)" = "$CAN_RESTART_MS" ] || return 1
+    if printf '%s\n' "$1" | grep -Eq '^[[:space:]]*can <([^>]*,)?LISTEN-ONLY(,[^>]*)?>'; then
+        current=on
+    else
+        current=off
+    fi
+    [ "$current" = "$LISTEN" ]
+}
+
+CAN_INTERFACE=$(setting CAN_INTERFACE socketcan)
+CAN_CHANNEL=$(setting CAN_CHANNEL can0)
+CAN_BITRATE=$(setting CAN_BITRATE 500000)
+CAN_RESTART_MS=$(setting CAN_RESTART_MS 100)
+CAN_LISTEN_ONLY=$(setting CAN_LISTEN_ONLY false)
+
+case $(printf '%s' "$CAN_LISTEN_ONLY" | tr '[:upper:]' '[:lower:]') in
+    1 | true | yes | on) LISTEN=on ;;
+    *) LISTEN=off ;;
+esac
+
+[ "$CAN_INTERFACE" = socketcan ] || exit 0
+if [ "$#" -gt 0 ] && [ "$1" != "$CAN_CHANNEL" ]; then
+    exit 0
+fi
+if [ ! -e "$SYSFS_ROOT/class/net/$CAN_CHANNEL" ]; then
+    log "$CAN_CHANNEL absent"
+    exit 0
+fi
+
+details=$(ip -details link show dev "$CAN_CHANNEL" 2>&1)
+status=$?
+if [ "$status" -ne 0 ]; then
+    log "ip -details link show dev $CAN_CHANNEL failed with status $status"
+    [ -z "$details" ] || log "$details"
+elif is_correct "$details"; then
+    exit 0
+fi
+
+run ip link set dev "$CAN_CHANNEL" down
+configured=yes
+run ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" restart-ms "$CAN_RESTART_MS" \
+    listen-only "$LISTEN" || configured=
+run ip link set dev "$CAN_CHANNEL" up || configured=
+if [ -n "$configured" ]; then
+    log "$CAN_CHANNEL up: bitrate $CAN_BITRATE restart-ms $CAN_RESTART_MS listen-only $LISTEN"
+fi
+exit 0
