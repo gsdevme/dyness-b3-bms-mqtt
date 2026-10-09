@@ -185,7 +185,9 @@ def test_ci_workflow() -> None:
     mqtt = jobs["mqtt"]
     assert mqtt["runs-on"] == "ubuntu-latest"
     services = list(mqtt["services"].values())
-    assert [service["image"] for service in services] == ["eclipse-mosquitto:1.6"]
+    assert [service["image"] for service in services] == [
+        "public.ecr.aws/docker/library/eclipse-mosquitto:1.6"
+    ]
     assert services[0]["ports"] == ["1883:1883"]
     assert mqtt["env"] == {
         "MQTT_HOST": "localhost",
