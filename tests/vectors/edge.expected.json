@@ -1,0 +1,65 @@
+{
+  "18F21122 X 0c f8 0f 0c e0 ff 01 77": {
+    "class": "MODULE", "frame": "CellExtremes", "module": 1, "code": "0x22",
+    "cell_max_mv": 3320, "cell_max_no": null, "cell_min_mv": 3296, "cell_min_no": null,
+    "max_charge_a": 37.5
+  },
+  "18F21223 X 01 8f 01 00 00 00 61 25": {
+    "class": "MODULE", "frame": "TempExtremes", "module": 2, "code": "0x23",
+    "temp_max_c": -0.1, "temp_max_sensor_raw": 1, "temp_min_c": -40.0, "temp_min_sensor_raw": 0,
+    "soh": 97, "soc": 37
+  },
+  "18F21124 X ff ff ff ff ff ff ff ff": {
+    "class": "MODULE", "frame": "StatusFlags", "module": 1, "code": "0x24",
+    "flags": {
+      "CellV_CutH": true, "CellV_CutL": true, "PackV_CutH": true, "PackV_CutL": true,
+      "Temp_CutH": true, "Temp_CutL": true, "Cur_CutH": true,
+      "CellV_AlarmH": true, "CellV_AlarmL": true, "PackV_AlarmH": true, "PackV_AlarmL": true,
+      "Temp_AlarmH": true, "Temp_AlarmL": true, "Cur_AlarmH": true,
+      "DisMOS_on": true, "ChgMOS_on": true, "Short": true, "PwrDown": true,
+      "MOS_TempH": true, "InternalComErr": true, "Reverse": true, "Balancing": true,
+      "CellDiff_Cut": true, "CellDiff_Alarm": true,
+      "InvalidCell": true, "ChgMOS_Err": true, "DisMOS_Err": true
+    },
+    "flags_raw": "ffffffffffffffff"
+  },
+  "18F21224 X 80 80 00 cf ce ff ff ff": {
+    "class": "MODULE", "frame": "StatusFlags", "module": 2, "code": "0x24",
+    "flags": {
+      "CellV_CutH": false, "CellV_CutL": false, "PackV_CutH": false, "PackV_CutL": false,
+      "Temp_CutH": false, "Temp_CutL": false, "Cur_CutH": false,
+      "CellV_AlarmH": false, "CellV_AlarmL": false, "PackV_AlarmH": false, "PackV_AlarmL": false,
+      "Temp_AlarmH": false, "Temp_AlarmL": false, "Cur_AlarmH": false,
+      "DisMOS_on": false, "ChgMOS_on": false, "Short": false, "PwrDown": false,
+      "MOS_TempH": false, "InternalComErr": false, "Reverse": false, "Balancing": false,
+      "CellDiff_Cut": false, "CellDiff_Alarm": false,
+      "InvalidCell": false, "ChgMOS_Err": false, "DisMOS_Err": false
+    },
+    "flags_raw": "808000cfceffffff"
+  },
+  "18F21321 X 13 6e 0f a0 0c f4 00 00": {
+    "class": "MODULE", "frame": "PackStatus", "module": 3, "code": "0x21",
+    "pack_v": 49.74, "current_raw_a": 0.0, "avg_cell_mv": 3316, "max_discharge_a": 0.0
+  },
+  "18F21215 X 02 41 02 44 02 3e 02 58": {
+    "class": "MODULE", "frame": "CellTemperatures", "module": 2, "code": "0x15",
+    "temps_c": [17.7, 18.0, 17.4]
+  },
+  "18F21314 X 0c f3 0c f8 0c f8 0c f9": {
+    "class": "MODULE", "frame": "CellVoltages", "module": 3, "code": "0x14",
+    "cells_mv": {"13": 3315, "14": 3320, "15": 3320}
+  },
+  "00000356 S 6a 13 7d ff f6 ff 00 00": {
+    "class": "STACK", "frame": "StackMeasurements", "can_id": "0x356",
+    "voltage_v": 49.7, "current_a": -13.1, "temp_c": -1.0
+  },
+  "00000351 S 12 02 9b fb 89 fe c2 01": {
+    "class": "STACK", "frame": "ChargeLimits", "can_id": "0x351",
+    "chg_v": 53.0, "chg_a": -112.5, "dis_a": -37.5, "dis_v": 45.0
+  },
+  "18F21323 X 02 3c 01 02 37 00 c8 ff": {
+    "class": "MODULE", "frame": "TempExtremes", "module": 3, "code": "0x23",
+    "temp_max_c": 17.2, "temp_max_sensor_raw": 1, "temp_min_c": 16.7, "temp_min_sensor_raw": 0,
+    "soh": 200, "soc": 255
+  }
+}

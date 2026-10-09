@@ -1,0 +1,63 @@
+# source: hand-made (TEST-17), not from a capture
+# lines: none
+# Every frame here must be dropped: none is MODULE or STACK, so nothing is decoded.
+#
+# MALFORMED: a MODULE or STACK candidate with DLC != 8 (PROTO-04).
+# 0x21 of module 1 with DLC 0.
+0.001 18F21121 X
+# 0x21 of module 1 cut to DLC 6 (the 01-protocol.md section 7.2 example).
+0.002 18F21121 X 13 6e 0f 6f 0c f4
+# 0x14 of module 3 with DLC 7.
+0.003 18F21314 X 0c f3 0c f8 0c f8 00
+# 0x24 of module 4 with DLC 9 (more than classic CAN allows; still MALFORMED).
+0.004 18F21424 X 00 00 03 00 00 00 00 00 00
+# Stack 0x351 with DLC 7.
+0.005 00000351 S 12 02 65 04 77 01 c2
+# Stack 0x359 with DLC 9.
+0.006 00000359 S 00 00 00 00 03 00 00 01 00
+#
+# ECHO: the poll pattern for a module outside 1..4 (another tool polling; PROTO-32).
+# Poll of module 0.
+0.007 18F21077 X 01 00 00 00 00 00 00 00
+# Poll of module 5.
+0.008 18F21577 X 01 00 00 00 00 00 00 00
+#
+# HEARTBEAT: classified by identifier only; payload and DLC are not checked (PROTO-24).
+0.009 18F20103 X 01 02 03
+#
+# UNKNOWN: everything else (PROTO-01, PROTO-02, PROTO-07).
+# Module-range identifier with module 0.
+0.010 18F21021 X 13 6e 0f 6f 0c f4 01 77
+# Module-range identifiers with modules 5..15.
+0.011 18F21521 X 13 6e 0f 6f 0c f4 01 77
+0.012 18F21621 X 13 6e 0f 6f 0c f4 01 77
+0.013 18F21721 X 13 6e 0f 6f 0c f4 01 77
+0.014 18F21821 X 13 6e 0f 6f 0c f4 01 77
+0.015 18F21921 X 13 6e 0f 6f 0c f4 01 77
+0.016 18F21A21 X 13 6e 0f 6f 0c f4 01 77
+0.017 18F21B21 X 13 6e 0f 6f 0c f4 01 77
+0.018 18F21C21 X 13 6e 0f 6f 0c f4 01 77
+0.019 18F21D21 X 13 6e 0f 6f 0c f4 01 77
+0.020 18F21E21 X 13 6e 0f 6f 0c f4 01 77
+0.021 18F21F21 X 13 6e 0f 6f 0c f4 01 77
+# Module 5 with DLC 6: outside 1..4, so UNKNOWN rather than MALFORMED.
+0.022 18F21521 X 13 6e 0f 6f 0c f4
+# Unlisted frame codes for module 1 (either side of 0x11..0x17 and 0x21..0x24).
+0.023 18F21110 X 00 00 00 00 00 00 00 00
+0.024 18F21118 X 00 00 00 00 00 00 00 00
+0.025 18F21120 X 00 00 00 00 00 00 00 00
+0.026 18F21125 X 00 00 00 00 00 00 00 00
+# An 11-bit (standard) frame carrying a module-like identifier.
+0.027 18F21121 S 13 6e 0f 6f 0c f4 01 77
+# An extended frame carrying a stack identifier.
+0.028 00000351 X 12 02 65 04 77 01 c2 01
+# An extended frame carrying an ignored identifier.
+0.029 0000035E X 44 59 4e 45 53 53 2d 4c
+# A standard frame carrying the heartbeat identifier.
+0.030 18F20103 S 00 00 00 00 00 00 00 00
+# An unlisted standard identifier next to the stack range.
+0.031 00000352 S 00 00 00 00 00 00 00 00
+# The BMS parameter-write identifier 0x18F26677 (never transmitted; PROTO-28).
+0.032 18F26677 X 01 00 00 00 00 00 00 00
+# A poll identifier whose data is not the poll payload: not an echo.
+0.033 18F21177 X 01 00 00 00 00 00 00 01
