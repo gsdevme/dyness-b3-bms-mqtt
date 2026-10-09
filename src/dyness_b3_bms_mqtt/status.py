@@ -1,8 +1,8 @@
-"""Shared status vocabularies of ``docs/specs/03-health-and-recovery.md``.
+"""Shared status vocabularies of the health machine (``03``) and the local log (``12``).
 
-The health machine produces these values and the telemetry store and publisher consume
-them, so they live in a module of their own that imports nothing from either side. Every
-member's value is the lower-case string that is logged and published.
+The health machine and the local log produce these values and the telemetry store and
+publisher consume them, so they live in a module of their own that imports nothing from
+either side. Every member's value is the lower-case string that is logged and published.
 """
 
 from enum import StrEnum
@@ -25,6 +25,14 @@ class HealthState(StrEnum):
     STALE = "stale"
     RECOVERING = "recovering"
     DEAD = "dead"
+
+
+class LocalLogStatus(StrEnum):
+    """The status of the local history, published as ``local_log`` (LOG-21)."""
+
+    OK = "ok"
+    DISABLED = "disabled"
+    ERROR = "error"
 
 
 RUNNING_STATES = frozenset({HealthState.STARTING, HealthState.HEALTHY, HealthState.DEGRADED})

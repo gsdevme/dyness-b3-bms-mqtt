@@ -29,7 +29,7 @@ from dyness_b3_bms_mqtt.payloads import (
     service_payload,
     stack_payload,
 )
-from dyness_b3_bms_mqtt.status import HealthState, ModuleStatus
+from dyness_b3_bms_mqtt.status import HealthState, LocalLogStatus, ModuleStatus
 from dyness_b3_bms_mqtt.telemetry import Snapshot, TelemetryStore
 from tests.fakes.clock import FakeClock
 from tests.plugins.golden import Golden
@@ -64,7 +64,7 @@ SERVICE_INFO = ServiceInfo(
     last_exit_result="signal",
     uptime_s=3725.9,
     mqtt_reconnects=1,
-    local_log="disabled",
+    local_log=LocalLogStatus.DISABLED,
 )
 UNKNOWN_SERVICE = ServiceInfo(
     version="0.1.0",
@@ -88,7 +88,7 @@ UNKNOWN_SERVICE = ServiceInfo(
     last_exit_result=None,
     uptime_s=0.0,
     mqtt_reconnects=0,
-    local_log="disabled",
+    local_log=LocalLogStatus.DISABLED,
 )
 
 type Payload = dict[str, Any]

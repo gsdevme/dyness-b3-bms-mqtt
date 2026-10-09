@@ -8,6 +8,7 @@ a run always ends in simulated time; a loop that stopped advancing time would hi
 module's timeout instead of hanging the suite.
 """
 
+import csv
 import errno
 import json
 import logging
@@ -23,7 +24,7 @@ from typing import Any
 import can
 import pytest
 
-from dyness_b3_bms_mqtt import __version__, alerts, protocol
+from dyness_b3_bms_mqtt import __version__, alerts, localog, protocol
 from dyness_b3_bms_mqtt.app import (
     ALERT_INTERVAL_S,
     HA_JITTER_MAX_S,
@@ -38,9 +39,12 @@ from dyness_b3_bms_mqtt.config import Settings, load_settings
 from dyness_b3_bms_mqtt.discovery import build_discovery
 from dyness_b3_bms_mqtt.health import HealthMachine
 from dyness_b3_bms_mqtt.linkstate import CanState, LinkState
+from dyness_b3_bms_mqtt.localog import LocalLog
 from dyness_b3_bms_mqtt.logsetup import HANDLER_NAME
 from dyness_b3_bms_mqtt.mqtt import Topics
+from dyness_b3_bms_mqtt.timefmt import iso_utc
 from tests.fakes.clock import FakeClock
+from tests.fakes.disk import FullDisk
 from tests.fakes.flaky import FlakyFactory
 from tests.fakes.notify import NotifySocket
 from tests.fakes.publisher import FakePublisher
@@ -901,3 +905,192 @@ def test_main_flags(
     assert main(["--bogus"]) == 78
     assert main(["--version", "--check-config"]) == 78
     assert any("unknown argument" in m for m in caplog.messages)
+
+
+# Local history
+
+
+def history(state_dir: Path, name: str) -> Path:
+    return state_dir / "logs" / name
+
+
+def csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def csv_text(value: object) -> str:
+    """Return the LOG-06 encoding of one published value."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return value if isinstance(value, str) else json.dumps(value)
+
+
+def event_lines(state_dir: Path) -> list[str]:
+    return history(state_dir, "events-2026-10-09.log").read_text(encoding="utf-8").splitlines()
+
+
+@pytest.fixture
+def disk(monkeypatch: pytest.MonkeyPatch) -> FullDisk:
+    fake = FullDisk()
+    monkeypatch.setattr(localog, "open", fake.open, raising=False)
+    return fake
+
+
+@pytest.mark.req("LOG-11", "LOG-03", "LOG-06")
+def test_interval_independent_of_publish_interval(rig: Rig, state_dir: Path) -> None:
+    rig.env.update(PUBLISH_INTERVAL_S="10", LOCAL_LOG_INTERVAL_S="4")
+    rig.at(13.0, lambda: rig.publisher.set_connected(True))
+
+    assert rig.run(seconds=41.0) == 0
+
+    stack = csv_rows(history(state_dir, "stack-2026-10-09.csv"))
+    modules = csv_rows(history(state_dir, "modules-2026-10-09.csv"))
+    due = [WALL0 + rig.t0 + 4.0 * k for k in range(1, 11)]
+    assert [row["ts"] for row in stack] == [iso_utc(ts) for ts in due]
+    assert [row["ts"] for row in modules] == [iso_utc(ts) for ts in due for _ in range(3)]
+    assert [row["module"] for row in modules] == ["1", "2", "3"] * 10
+    assert all(row["online"] == "true" for row in modules[3:])
+
+    module_topics = {TOPICS.module_state(m) for m in (1, 2, 3)}
+    compared = 0
+    for entry in rig.publisher.log:
+        if not any(rig.t0 + s <= entry.at <= rig.t0 + s + RECV_TIMEOUT_S for s in (20.0, 40.0)):
+            continue
+        if entry.topic == STACK:
+            published = json.loads(entry.payload)
+            (row,) = [r for r in stack if r["ts"] == published["ts"]]
+        elif entry.topic in module_topics:
+            published = json.loads(entry.payload)
+            (row,) = [
+                r
+                for r in modules
+                if (r["ts"], r["module"]) == (published["ts"], str(published["module"]))
+            ]
+        else:
+            continue
+        assert row == {key: csv_text(published[key]) for key in row}
+        compared += 1
+    assert compared == 8
+
+
+@pytest.mark.req("LOG-13", "LOG-01")
+def test_housekeeping_at_start_and_hourly(
+    rig: Rig, state_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[str, float]] = []
+    housekeep, write, event = LocalLog.housekeep, LocalLog.write, LocalLog.event
+
+    def spy_housekeep(self: LocalLog, now_wall: float) -> None:
+        calls.append(("housekeep", rig.clock()))
+        housekeep(self, now_wall)
+
+    def spy_write(self: LocalLog, *args: Any) -> None:
+        calls.append(("write", rig.clock()))
+        write(self, *args)
+
+    def spy_event(self: LocalLog, *args: Any) -> None:
+        calls.append(("event", rig.clock()))
+        event(self, *args)
+
+    monkeypatch.setattr(LocalLog, "housekeep", spy_housekeep)
+    monkeypatch.setattr(LocalLog, "write", spy_write)
+    monkeypatch.setattr(LocalLog, "event", spy_event)
+    monkeypatch.setattr("dyness_b3_bms_mqtt.app.HOUSEKEEPING_INTERVAL_S", 20.0)
+
+    assert rig.run(seconds=65.0) == 0
+
+    assert localog.HOUSEKEEPING_INTERVAL_S == 3600.0
+    assert calls[0] == ("housekeep", rig.t0)
+    times = [at for kind, at in calls if kind == "housekeep"]
+    assert len(times) == 4
+    for k, at in enumerate(times[1:], start=1):
+        assert rig.t0 + 20.0 * k <= at <= rig.t0 + 20.0 * k + RECV_TIMEOUT_S
+    assert history(state_dir, "events-2026-10-09.log").is_file()
+
+
+@pytest.mark.req("LOG-09", "LOG-10", "LOG-12")
+def test_events_written_when_they_happen(rig: Rig, state_dir: Path, disk: FullDisk) -> None:
+    rig.env.update(LOCAL_LOG_INTERVAL_S="300", ALERT_DEBOUNCE_S="2")
+    rig.at(20.0, lambda: rig.sim.set_cells(2, LOW_CELLS))
+    seen: list[list[str]] = []
+    rig.at(30.0, lambda: seen.append(event_lines(state_dir)))
+
+    assert rig.run(seconds=40.0) == 0
+
+    lines = event_lines(state_dir)
+    start = iso_utc(WALL0 + rig.t0)
+    assert lines[0] == f"{start} health: none -> starting (start)"
+    assert f"{start} poll module 1" in lines
+    messages = [line.split(" ", 1)[1] for line in lines]
+    assert "health: starting -> healthy (all_ok: 3/3 modules ok)" in messages
+    alert = "alert module 2 cell_low: off -> on (value=2900 mV, threshold=3000 mV)"
+    (stamp,) = [line.split(" ", 1)[0] for line in lines if line.endswith(alert)]
+    assert iso_utc(WALL0 + rig.t0 + 22.0) <= stamp <= iso_utc(WALL0 + rig.t0 + 25.0)
+    assert any(line.endswith(alert) for line in seen[0])
+    assert messages[-1] == "stopping on stop request: exit status 0"
+    assert not history(state_dir, "modules-2026-10-09.csv").exists()
+    assert disk.appended
+    assert all(handle.closed for handle in disk.appended)
+
+
+@pytest.mark.req("LOG-10")
+@pytest.mark.parametrize("code", [75, 1])
+def test_exit_event_on_every_exit_path(
+    rig: Rig, state_dir: Path, disk: FullDisk, code: int
+) -> None:
+    rig.publisher.set_connected(True)
+    if code == 75:
+        rig.at(20.0, rig.sim.silence_bus)
+    else:
+        rig.at(20.0, lambda: setattr(rig.publisher, "explode_on_take_events", RuntimeError("boom")))
+
+    assert rig.run(seconds=300.0) == code
+
+    last = event_lines(state_dir)[-1].split(" ", 1)[1]
+    if code == 75:
+        assert last.startswith("exiting with status 75: reopen_exhausted")
+    else:
+        assert last == "unhandled exception; exiting with status 1"
+    assert disk.appended
+    assert all(handle.closed for handle in disk.appended)
+
+
+@pytest.mark.req("LOG-18", "LOG-19", "LOG-21")
+def test_disk_full_keeps_service_running(
+    rig: Rig,
+    state_dir: Path,
+    disk: FullDisk,
+    notify_socket: NotifySocket,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rig.env.update(
+        NOTIFY_SOCKET=notify_socket.path,
+        WATCHDOG_USEC="3000000",
+        WATCHDOG_PID=str(PID),
+        PUBLISH_INTERVAL_S="10",
+        LOCAL_LOG_INTERVAL_S="5",
+    )
+    rig.publisher.set_connected(True)
+    rig.at(22.0, lambda: setattr(disk, "full", True))
+
+    with caplog.at_level(logging.INFO):
+        assert rig.run(seconds=65.0) == 0
+
+    errors = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    assert str(state_dir / "logs") in errors[0] and "No space left on device" in errors[0]
+    assert rig.health() == ["starting", "healthy"]
+    services = rig.publisher.payloads(SERVICE)
+    assert all(p["local_log"] == "ok" for at, p in services if at < rig.t0 + 22.0)
+    first_error = next(at for at, p in services if p["local_log"] == "error")
+    assert rig.t0 + 30.0 <= first_error <= rig.t0 + 30.0 + RECV_TIMEOUT_S
+    assert all(p["local_log"] == "error" for at, p in services if at > first_error)
+    stack_times = rig.publisher.times(STACK)
+    for k in range(1, 7):
+        due = rig.t0 + 10.0 * k
+        assert any(due <= t <= due + RECV_TIMEOUT_S for t in stack_times), due
+    watchdogs = notify_socket.messages().count("WATCHDOG=1")
+    assert watchdogs >= 40

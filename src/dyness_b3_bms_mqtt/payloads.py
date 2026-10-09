@@ -10,17 +10,16 @@ seconds), which every payload carries as ISO 8601 UTC to the second (MQTT-15).
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final, Literal
+from typing import Final
 
 from dyness_b3_bms_mqtt.alerts import Alert
 from dyness_b3_bms_mqtt.linkstate import CanState
 from dyness_b3_bms_mqtt.protocol import CELLS_PER_MODULE
-from dyness_b3_bms_mqtt.status import HealthState
+from dyness_b3_bms_mqtt.status import HealthState, LocalLogStatus
 from dyness_b3_bms_mqtt.telemetry import TEMPERATURE_SENSORS, ModuleSnapshot, StackSnapshot
 from dyness_b3_bms_mqtt.timefmt import iso_utc
 
 type Payload = dict[str, object]
-type LocalLogStatus = Literal["ok", "disabled", "error"]
 
 _CELL_KEYS: Final = tuple(f"cell_{n:02d}_mv" for n in range(1, CELLS_PER_MODULE + 1))
 _TEMP_KEYS: Final = tuple(f"temp_{n}_c" for n in range(1, TEMPERATURE_SENSORS + 1))
@@ -303,7 +302,7 @@ def service_payload(info: ServiceInfo, ts: float) -> Payload:
         "last_exit_result": info.last_exit_result,
         "uptime_s": int(info.uptime_s),
         "mqtt_reconnects": info.mqtt_reconnects,
-        "local_log": info.local_log,
+        "local_log": info.local_log.value,
     }
 
 
