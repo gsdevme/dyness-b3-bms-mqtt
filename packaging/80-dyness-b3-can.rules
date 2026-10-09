@@ -1,0 +1,4 @@
+# Configure the Dyness B3 CAN link whenever a CAN netdev appears (boot, replug, USB reset).
+# can-up ignores interfaces other than CAN_CHANNEL and only runs ip(8), so it fits in the
+# short time budget udev allows RUN+= programs.
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="can*", RUN+="/usr/local/lib/dyness-b3-bms-mqtt/can-up $name"
