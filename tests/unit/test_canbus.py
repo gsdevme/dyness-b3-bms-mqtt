@@ -13,6 +13,7 @@ import time
 from collections import deque
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -269,10 +270,27 @@ EXPECTED_KWARGS: dict[str, dict[str, Any]] = {
         "channel": "can0",
         "can_filters": EXPECTED_FILTERS,
         "receive_own_messages": False,
+        "ignore_config": True,
     },
-    "gs_usb": {"interface": "gs_usb", "channel": 1, "index": 1, "bitrate": 250000},
-    "slcan": {"interface": "slcan", "channel": "/dev/ttyACM0", "bitrate": 500000},
-    "virtual": {"interface": "virtual", "channel": "sim0", "receive_own_messages": False},
+    "gs_usb": {
+        "interface": "gs_usb",
+        "channel": 1,
+        "index": 1,
+        "bitrate": 250000,
+        "ignore_config": True,
+    },
+    "slcan": {
+        "interface": "slcan",
+        "channel": "/dev/ttyACM0",
+        "bitrate": 500000,
+        "ignore_config": True,
+    },
+    "virtual": {
+        "interface": "virtual",
+        "channel": "sim0",
+        "receive_own_messages": False,
+        "ignore_config": True,
+    },
 }
 
 
@@ -291,6 +309,29 @@ def test_bus_kwargs_per_interface(interface: str, monkeypatch: pytest.MonkeyPatc
     assert recorder.calls == [EXPECTED_KWARGS[interface]]
     real.close()
     assert list(ACCEPT_FILTERS) == EXPECTED_FILTERS
+
+
+@pytest.mark.req("CAN-04")
+def test_python_can_config_ignored(
+    can_channel: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A malformed python-can config file or ``CAN_CONFIG`` cannot break or extend open()."""
+    (tmp_path / ".canrc").write_text("[default\nnot an ini file\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    fake_clock = FakeClock(5.0)
+    live = PythonCanTransport(
+        make_settings(CAN_CHANNEL=can_channel),
+        fake_clock,
+        fake_clock.sleep,
+        link_query=LinkQuery(),
+    )
+    with live:
+        live.open()
+        assert live.recv(0) is None
+        monkeypatch.setenv("CAN_CONFIG", "{not json")
+        monkeypatch.setenv("CAN_BITRATE", "125000")
+        live.reopen()
+        assert live.recv(0) is None
 
 
 @pytest.mark.req("CAN-08", "CAN-09")

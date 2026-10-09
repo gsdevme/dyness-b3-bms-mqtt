@@ -54,10 +54,12 @@ Variables referenced here (`CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_R
   for the configured `CAN_INTERFACE`. A unit test MUST assert the arguments for each
   interface with `can.Bus` replaced by a recorder.
 
-  `can.Bus` also merges any python-can configuration file and `CAN_*` environment variables
-  it finds into its keyword arguments. The service passes every setting above explicitly, so
-  those win over anything python-can loads that way; only a key the service does not pass
-  (such as `bitrate` from `CAN_BITRATE` with socketcan) can still be added.
+  Besides the arguments in the table, `open()` passes `ignore_config=True` for every
+  interface. Without it `can.Bus` merges any python-can configuration file (`~/can.conf`,
+  `/etc/can.conf`, `~/.can`, `~/.canrc`) and the `CAN_*` and `CAN_CONFIG` environment
+  variables into its keyword arguments: a malformed file or `CAN_CONFIG` would make every
+  open raise, and a key the service does not pass (such as `bitrate` from `CAN_BITRATE` with
+  socketcan) could be added. With it, the bus gets exactly the table's arguments.
 
 * **CAN-05** For `gs_usb` on macOS only (`sys.platform == "darwin"`), `open()` MUST replace
   `usb.core.Device.is_kernel_driver_active` with a function returning `False` before

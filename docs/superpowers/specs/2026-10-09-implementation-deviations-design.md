@@ -6,10 +6,11 @@
 
 Reviewing each implementation task against `docs/specs/` found places where the living spec
 and the code disagree. In each case the code was reviewed and kept, so the spec now records
-what is implemented. No code changed; the only test edits are the requirement markers of two
-tests (INST-17) and the doc block of the traceability plugin. The earlier design records
-(`2026-10-09-dyness-b3-bms-mqtt-design.md`, `2026-10-09-implementation-amendments-design.md`)
-are unchanged.
+what is implemented. No code changed for that; the only test edits are the requirement
+markers of two tests (INST-17) and the doc block of the traceability plugin. A code change
+from the final branch review is recorded as a follow-up under change 8. The earlier design
+records (`2026-10-09-dyness-b3-bms-mqtt-design.md`,
+`2026-10-09-implementation-amendments-design.md`) are unchanged.
 
 ## Changes
 
@@ -50,6 +51,11 @@ are unchanged.
    `index` re-runs `start()`/`stop()` in normal mode, outside the CAN-16 listen-only window.
    A `gs_usb` USB write timeout maps to `OS_ERROR` and an absent adapter to `OPEN_FAILED`,
    as the §8 table already implies; the note makes that explicit.
+   * Final-review follow-up: `open()` now passes `ignore_config=True` to `can.Bus`, so
+     python-can loads no configuration file or `CAN_*`/`CAN_CONFIG` variable. Documenting
+     the merge was not enough: a malformed `/etc/can.conf` or `CAN_CONFIG` raised a
+     `configparser` or JSON error that §8 does not map, so the service exited 1 and
+     crash-looped. The CAN-04 note now says the bus gets exactly the table's arguments.
 9. **SVC-11, MQTT-10** (`09-service.md`, `06-mqtt.md`): the implemented clean stop is
    `STOPPING=1`, then the retained `offline` and final service state published without
    waiting (and the local history closed), then `bus.shutdown()`, then `publisher.stop()`,
