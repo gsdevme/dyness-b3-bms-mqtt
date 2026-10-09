@@ -4,6 +4,11 @@ Tests that need a broker live only in ``tests/integration/test_mosquitto.py`` be
 ``mosquitto`` and ``integration`` markers, so the default run collects them but skips them
 unless a broker answers (TEST-02, TEST-37). Everywhere else a ``PahoPublisher`` is built
 only on an injected client factory and no real paho client is constructed.
+
+Tests that need the real stack live only in ``tests/hardware/`` behind the ``hardware``
+marker. They run listen-only unless ``--hardware-poll`` is given, and the only transmission
+they may make is ``send_poll``, from a test that takes the ``poll_allowed`` fixture, which
+skips without that option (TEST-38).
 """
 
 import ast
@@ -104,3 +109,49 @@ def test_mosquitto_suite_shape() -> None:
             if name == "PahoPublisher":
                 keywords = {keyword.arg for keyword in call.keywords}
                 assert "client_factory" in keywords, f"{path.name}:{call.lineno}"
+
+
+HARDWARE_DIR = TESTS / "hardware"
+POLL_GATE = "poll_allowed"
+TRANSMITTING = {"send", "send_poll", "send_periodic", "Message"}
+
+
+def nested_calls(node: ast.AST) -> Iterator[ast.Call]:
+    """Yield every call expression under ``node``."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call):
+            yield child
+
+
+@pytest.mark.req("TEST-38", "TEST-02")
+def test_hardware_suite_shape() -> None:
+    files = sorted(HARDWARE_DIR.glob("test_*.py"))
+    assert files
+    for path in files:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        shared = module_markers(tree)
+        assert "hardware" in shared, path.name
+        assert '"--hardware-poll"' in source and '"CAN_LISTEN_ONLY"' in source, path.name
+        functions = list(iter_test_functions(tree))
+        assert functions, path.name
+        for function in functions:
+            markers = shared | marker_names(function.decorator_list)
+            assert not {"integration", "mosquitto"} & markers, function.name
+            sends = [c for c in nested_calls(function) if call_name(c) in TRANSMITTING]
+            assert {call_name(c) for c in sends} <= {"send_poll"}, function.name
+            if sends:
+                assert POLL_GATE in {a.arg for a in function.args.args}, function.name
+        outside = [
+            c.lineno for c in nested_calls(tree) if call_name(c) in TRANSMITTING - {"send_poll"}
+        ]
+        assert outside == [], path.name
+
+    for path in iter_test_files():
+        if path.parent == HARDWARE_DIR:
+            continue
+        module = ast.parse(path.read_text(encoding="utf-8"))
+        module_level = module_markers(module)
+        for function in iter_test_functions(module):
+            markers = module_level | marker_names(function.decorator_list)
+            assert "hardware" not in markers, f"{path.name}::{function.name}"
