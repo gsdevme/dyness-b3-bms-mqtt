@@ -1,0 +1,22 @@
+# source: hand-made decode edge cases, not from a capture
+# lines: none
+# 0x22 wire cell numbers 15 and 255 are out of range: both decode to None (PROTO-11).
+0.001 18F21122 X 0c f8 0f 0c e0 ff 01 77
+# 0x23 raw 399 and raw 0 give -0.1 and -40.0 degC, no two's complement (PROTO-14).
+0.002 18F21223 X 01 8f 01 00 00 00 61 25
+# 0x24 with every bit set: all 27 named flags true (PROTO-15).
+0.003 18F21124 X ff ff ff ff ff ff ff ff
+# 0x24 with only the unnamed bits set: no flag true, all bits kept in flags_raw (PROTO-15).
+0.004 18F21224 X 80 80 00 cf ce ff ff ff
+# 0x21 current raw 4000 is exactly 0.0 A, never -0.0 (PROTO-08).
+0.005 18F21321 X 13 6e 0f a0 0c f4 00 00
+# 0x15 with a non-zero T4 (20.0 degC): still ignored (PROTO-10).
+0.006 18F21215 X 02 41 02 44 02 3e 02 58
+# 0x14 with a non-zero slot 16: still ignored (PROTO-09).
+0.007 18F21314 X 0c f3 0c f8 0c f8 0c f9
+# 0x356 negative current (discharging) and negative temperature, signed 16-bit (PROTO-17).
+0.008 00000356 S 6a 13 7d ff f6 ff 00 00
+# 0x351 negative current limits, signed 16-bit (PROTO-17).
+0.009 00000351 S 12 02 9b fb 89 fe c2 01
+# 0x23 SOH 200 and SOC 255: decoded raw, never clamped (range checks belong to telemetry).
+0.010 18F21323 X 02 3c 01 02 37 00 c8 ff

@@ -1,0 +1,130 @@
+{
+  "18F21124 X 00 00 03 00 00 00 00 00": {
+    "class": "MODULE", "frame": "StatusFlags", "module": 1, "code": "0x24",
+    "flags": {
+      "CellV_CutH": false, "CellV_CutL": false, "PackV_CutH": false, "PackV_CutL": false,
+      "Temp_CutH": false, "Temp_CutL": false, "Cur_CutH": false,
+      "CellV_AlarmH": false, "CellV_AlarmL": false, "PackV_AlarmH": false, "PackV_AlarmL": false,
+      "Temp_AlarmH": false, "Temp_AlarmL": false, "Cur_AlarmH": false,
+      "DisMOS_on": true, "ChgMOS_on": true, "Short": false, "PwrDown": false,
+      "MOS_TempH": false, "InternalComErr": false, "Reverse": false, "Balancing": false,
+      "CellDiff_Cut": false, "CellDiff_Alarm": false,
+      "InvalidCell": false, "ChgMOS_Err": false, "DisMOS_Err": false
+    },
+    "flags_raw": "0000030000000000"
+  },
+  "0000035E S 44 59 4e 45 53 53 2d 4c": {"class": "IGNORED"},
+  "18F21221 X 13 62 0f 76 0c ec 00 00": {
+    "class": "MODULE", "frame": "PackStatus", "module": 2, "code": "0x21",
+    "pack_v": 49.62, "current_raw_a": -4.2, "avg_cell_mv": 3308, "max_discharge_a": 0.0
+  },
+  "18F20103 X 00 00 00 00 00 00 00 00": {"class": "HEARTBEAT"},
+  "18F21316 X 02 7f 02 5d 03 cc 00 00": {
+    "class": "MODULE", "frame": "MosBoardCycles", "module": 3, "code": "0x16",
+    "mos_c": 23.9, "board_c": 20.5, "cycles": 972
+  },
+  "18F21116 X 02 7e 02 53 04 0b 00 00": {
+    "class": "MODULE", "frame": "MosBoardCycles", "module": 1, "code": "0x16",
+    "mos_c": 23.8, "board_c": 19.5, "cycles": 1035
+  },
+  "0000035F S 00 00 88 03 e1 00 00 00": {
+    "class": "STACK", "frame": "StackCapacity", "can_id": "0x35f", "capacity_ah": 225
+  },
+  "18F21222 X 0c f6 0a 0c d2 07 01 77": {
+    "class": "MODULE", "frame": "CellExtremes", "module": 2, "code": "0x22",
+    "cell_max_mv": 3318, "cell_max_no": 11, "cell_min_mv": 3282, "cell_min_no": 8,
+    "max_charge_a": 37.5
+  },
+  "18F21321 X 13 6f 0f 78 0c f4 00 00": {
+    "class": "MODULE", "frame": "PackStatus", "module": 3, "code": "0x21",
+    "pack_v": 49.75, "current_raw_a": -4.0, "avg_cell_mv": 3316, "max_discharge_a": 0.0
+  },
+  "18F21121 X 13 6e 0f 6f 0c f4 01 77": {
+    "class": "MODULE", "frame": "PackStatus", "module": 1, "code": "0x21",
+    "pack_v": 49.74, "current_raw_a": -4.9, "avg_cell_mv": 3316, "max_discharge_a": 37.5
+  },
+  "0000070D S 64 00 0f 00 69 00 e1 00": {
+    "class": "STACK", "frame": "StackWords", "can_id": "0x70d", "words": [100, 15, 105, 225]
+  },
+  "0000030F S 00 00 00 00 00 00 00 00": {"class": "IGNORED"},
+  "18F21223 X 02 40 01 02 3c 02 61 09": {
+    "class": "MODULE", "frame": "TempExtremes", "module": 2, "code": "0x23",
+    "temp_max_c": 17.6, "temp_max_sensor_raw": 1, "temp_min_c": 17.2, "temp_min_sensor_raw": 2,
+    "soh": 97, "soc": 9
+  },
+  "18F21322 X 0c fe 0a 0c d7 08 01 77": {
+    "class": "MODULE", "frame": "CellExtremes", "module": 3, "code": "0x22",
+    "cell_max_mv": 3326, "cell_max_no": 11, "cell_min_mv": 3287, "cell_min_no": 9,
+    "max_charge_a": 37.5
+  },
+  "18F21122 X 0c f8 05 0c e0 06 01 77": {
+    "class": "MODULE", "frame": "CellExtremes", "module": 1, "code": "0x22",
+    "cell_max_mv": 3320, "cell_max_no": 6, "cell_min_mv": 3296, "cell_min_no": 7,
+    "max_charge_a": 37.5
+  },
+  "00000371 S 20 42 61 74 74 65 72 79": {"class": "IGNORED"},
+  "00000370 S 44 59 4e 45 53 53 2d 4c": {"class": "IGNORED"},
+  "18F21323 X 02 3c 01 02 37 00 61 08": {
+    "class": "MODULE", "frame": "TempExtremes", "module": 3, "code": "0x23",
+    "temp_max_c": 17.2, "temp_max_sensor_raw": 1, "temp_min_c": 16.7, "temp_min_sensor_raw": 0,
+    "soh": 97, "soc": 8
+  },
+  "18F21123 X 02 44 01 02 3e 02 61 25": {
+    "class": "MODULE", "frame": "TempExtremes", "module": 1, "code": "0x23",
+    "temp_max_c": 18.0, "temp_max_sensor_raw": 1, "temp_min_c": 17.4, "temp_min_sensor_raw": 2,
+    "soh": 97, "soc": 37
+  },
+  "0000035C S c0 00 00 00 00 00 00 00": {
+    "class": "STACK", "frame": "ChargeRequest", "can_id": "0x35c",
+    "request_raw": 192, "charge_enable": true, "discharge_enable": true
+  },
+  "18F21224 X 00 00 83 00 00 00 00 00": {
+    "class": "MODULE", "frame": "StatusFlags", "module": 2, "code": "0x24",
+    "flags": {
+      "CellV_CutH": false, "CellV_CutL": false, "PackV_CutH": false, "PackV_CutL": false,
+      "Temp_CutH": false, "Temp_CutL": false, "Cur_CutH": false,
+      "CellV_AlarmH": false, "CellV_AlarmL": false, "PackV_AlarmH": false, "PackV_AlarmL": false,
+      "Temp_AlarmH": false, "Temp_AlarmL": false, "Cur_AlarmH": false,
+      "DisMOS_on": true, "ChgMOS_on": true, "Short": false, "PwrDown": false,
+      "MOS_TempH": false, "InternalComErr": false, "Reverse": false, "Balancing": true,
+      "CellDiff_Cut": false, "CellDiff_Alarm": false,
+      "InvalidCell": false, "ChgMOS_Err": false, "DisMOS_Err": false
+    },
+    "flags_raw": "0000830000000000"
+  },
+  "00000359 S 00 00 00 00 03 00 00 01": {
+    "class": "STACK", "frame": "StackModuleCount", "can_id": "0x359",
+    "module_count": 3, "raw_hex": "0000000003000001"
+  },
+  "18F21216 X 02 78 02 5a 03 e6 00 00": {
+    "class": "MODULE", "frame": "MosBoardCycles", "module": 2, "code": "0x16",
+    "mos_c": 23.2, "board_c": 20.2, "cycles": 998
+  },
+  "18F21324 X 00 00 83 00 00 00 00 00": {
+    "class": "MODULE", "frame": "StatusFlags", "module": 3, "code": "0x24",
+    "flags": {
+      "CellV_CutH": false, "CellV_CutL": false, "PackV_CutH": false, "PackV_CutL": false,
+      "Temp_CutH": false, "Temp_CutL": false, "Cur_CutH": false,
+      "CellV_AlarmH": false, "CellV_AlarmL": false, "PackV_AlarmH": false, "PackV_AlarmL": false,
+      "Temp_AlarmH": false, "Temp_AlarmL": false, "Cur_AlarmH": false,
+      "DisMOS_on": true, "ChgMOS_on": true, "Short": false, "PwrDown": false,
+      "MOS_TempH": false, "InternalComErr": false, "Reverse": false, "Balancing": true,
+      "CellDiff_Cut": false, "CellDiff_Alarm": false,
+      "InvalidCell": false, "ChgMOS_Err": false, "DisMOS_Err": false
+    },
+    "flags_raw": "0000830000000000"
+  },
+  "00000351 S 12 02 65 04 77 01 c2 01": {
+    "class": "STACK", "frame": "ChargeLimits", "can_id": "0x351",
+    "chg_v": 53.0, "chg_a": 112.5, "dis_a": 37.5, "dis_v": 45.0
+  },
+  "00000305 S 00 00 00 00 00 00 00 00": {"class": "IGNORED"},
+  "00000355 S 12 00 61 00 00 00 00 00": {
+    "class": "STACK", "frame": "StackSocSoh", "can_id": "0x355", "soc": 18, "soh": 97
+  },
+  "00000356 S 6a 13 83 00 b4 00 00 00": {
+    "class": "STACK", "frame": "StackMeasurements", "can_id": "0x356",
+    "voltage_v": 49.7, "current_a": 13.1, "temp_c": 18.0
+  },
+  "0000035A S 00 00 00 00 00 00 00 00": {"class": "IGNORED"}
+}
