@@ -60,7 +60,7 @@ def test_console_script_and_build_backend() -> None:
     assert [_requirement_name(spec) for spec in data["build-system"]["requires"]] == ["uv-build"]
 
 
-@pytest.mark.req("INST-14")
+@pytest.mark.req("INST-17")
 def test_version_is_single_sourced() -> None:
     source = (ROOT / "src" / "dyness_b3_bms_mqtt" / "__init__.py").read_text()
     assert not re.search(r"\d+\.\d+\.\d+", source)
@@ -68,7 +68,7 @@ def test_version_is_single_sourced() -> None:
     assert dyness_b3_bms_mqtt.__version__ == _pyproject()["project"]["version"]
 
 
-@pytest.mark.req("INST-14")
+@pytest.mark.req("INST-17")
 def test_release_please_config() -> None:
     config = json.loads((ROOT / "release-please-config.json").read_text())
     assert config == {

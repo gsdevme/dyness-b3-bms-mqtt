@@ -37,9 +37,9 @@ Do the steps in order. The expected observations are in the TEST-39 table.
 | # | Action | Covers |
 |---|---|---|
 | 1 | Fresh install, `CAN_LISTEN_ONLY=true`, start the service | CAN-17, INST-15 |
-| 2 | `CAN_LISTEN_ONLY=false`, `sudo make restart`; check again an hour later | |
+| 2 | `CAN_LISTEN_ONLY=false`, `sudo make restart`; check again an hour later | SVC-19 |
 | 3 | Unplug the adapter for 2 min, then replug | SVC-21 |
-| 4 | As step 3, but stay unplugged past `DEAD_USB_RESET_S` | SVC-19 |
+| 4 | As step 3, but stay unplugged past `DEAD_USB_RESET_S` | |
 | 5 | `sudo ip link set can0 down` | |
 | 6 | Stop the broker for 2 min, then start it | |
 | 7 | Restart Home Assistant | |
@@ -50,17 +50,18 @@ Do the steps in order. The expected observations are in the TEST-39 table.
 | 12 | 24 h soak in normal operation | TEST-41 |
 | 13 | Local log housekeeping (old `modules-`/`stack-` files, restart) | |
 | 14 | Disk full, then free the space | LOG-22 |
+| 15 | `systemd-analyze verify` on the installed unit | SVC-02 |
+| 16 | Edit the env file, `sudo make install` again, compare `sha256sum` | INST-16 |
 
-Two **MANUAL** requirements have no step of their own; check them during the run:
-
-| ID | Check |
-|---|---|
-| SVC-02 | `systemd-analyze verify /etc/systemd/system/dyness-b3-bms-mqtt.service` reports no unknown directives |
-| INST-16 | Edit `/etc/default/dyness-b3-bms-mqtt`, run `sudo make install` again: no errors, the file unchanged byte-for-byte (`sha256sum` before and after), the service restarted |
+Step 2's hour-long run with polling is the SVC-19 evidence: it is where an adapter stall
+after transmitting would show. If the adapter stalls and the escalation reaches exit 76,
+the USB reset has to bring it back without a replug, or the log has to name the step that
+failed. Step 4 exits 76 with the adapter unplugged, so it cannot show a stalled adapter
+recovering.
 
 Cross-check (TEST-40): `uv run pytest --req-report` ends with the list of **MANUAL**
-requirements. Every identifier in it must appear in a "Covers" cell above, in the SVC-02 /
-INST-16 table, or be TEST-39 or TEST-40 themselves.
+requirements. Every identifier in it must appear in a "Covers" cell above, or be TEST-39 or
+TEST-40 themselves.
 
 ## 4. Recording results
 
@@ -77,9 +78,7 @@ Commit: <sha> · Kernel: <uname -r> · Debian: <version> · Settings changed: <l
 | Hardware tests, with poll | pass/fail | |
 | Step 1 | pass/fail | |
 | … | | |
-| Step 14 | pass/fail | |
-| SVC-02 | pass/fail | |
-| INST-16 | pass/fail | |
+| Step 16 | pass/fail | |
 
 ## UNVERIFIED facts
 

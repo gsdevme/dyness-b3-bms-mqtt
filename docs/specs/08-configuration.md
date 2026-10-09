@@ -49,7 +49,7 @@ to variables by name and MUST NOT restate defaults.
 | `CAN_LISTEN_ONLY` | bool | `false` | `true`: never transmit, no polls, cell sensors only populate if something else polls |
 | `CAN_USB_ID` | string | `1d50:606f` | `hhhh:hhhh` hex. USB vendor:product used by the USB-reset helper fallback when `CAN_CHANNEL` has vanished |
 | `MODULE_COUNT` | int | `3` | 1..4. Modules 1..`MODULE_COUNT` are polled and published |
-| `MODULE_NAMES` | string | *(unset)* | Optional. Comma list `n:Name` e.g. `1:Top,2:Middle,3:Bottom`. Each `n` MUST be in 1..`MODULE_COUNT`; names MUST be unique, 1..32 chars. Used for HA device names only |
+| `MODULE_NAMES` | string | *(unset)* | Optional. Comma list `n:Name` e.g. `1:Top,2:Middle,3:Bottom`. Whitespace around each `n` and name is ignored. Each `n` MUST be in 1..`MODULE_COUNT`; names MUST be unique, 1..32 chars. Used for HA device names only |
 
 ## 3. Polling and freshness
 
@@ -60,7 +60,7 @@ to variables by name and MUST NOT restate defaults.
 | `POLL_MAX_RETRIES` | int | `3` | 0..20. Re-polls at `POLL_RETRY_S` before falling back to `POLL_BACKOFF_S` |
 | `POLL_BACKOFF_S` | duration | `60` | ≥ `POLL_RETRY_S`. Re-poll interval after retries are exhausted |
 | `START_GRACE_S` | duration | `20` | 5..120. Time after bus open before module staleness is judged |
-| `CELL_STALE_S` | duration | `10` | 2..300. Cell stream (`0x11`–`0x15`, `0x17`) older than this is stale |
+| `CELL_STALE_S` | duration | `10` | 2..300. Cell stream (`0x11`–`0x15`, HEALTH-04) older than this is stale |
 | `MODULE_STALE_S` | duration | `10` | 2..300. Broadcast frames (`0x16`, `0x21`–`0x24`) older than this mark the module SILENT |
 | `BUS_SILENCE_S` | duration | `15` | ≥ `MODULE_STALE_S`. No frame at all for this long means the bus/adapter is STALE |
 
@@ -96,7 +96,7 @@ to variables by name and MUST NOT restate defaults.
 | Variable | Type | Default | Validation / meaning |
 |---|---|---|---|
 | `HA_DISCOVERY` | bool | `true` | Publish discovery; `false` publishes state only |
-| `HA_DISCOVERY_PREFIX` | string | `homeassistant` | Same charset as `MQTT_BASE_TOPIC` |
+| `HA_DISCOVERY_PREFIX` | string | `homeassistant` | Same rule as `MQTT_BASE_TOPIC`: 1..64 chars `[A-Za-z0-9_/-]`, no leading/trailing `/` |
 | `HA_NODE_ID` | string | `dyness_b3` | 1..32 chars `[a-z0-9_]`. Prefix of every `unique_id` and discovery object id. **Changing it creates new entities in HA** |
 | `HA_DEVICE_NAME` | string | `Dyness B3` | 1..64 chars. Human name prefix for the HA devices |
 | `EXPIRE_AFTER_S` | int | `0` | 0 or 10..3600. `0` = automatic: `3 × PUBLISH_INTERVAL_S + 5`, rounded up to an integer |

@@ -130,6 +130,11 @@ Repository sources: `packaging/dyness-b3-bms-mqtt.service`, `packaging/can-up`,
   `11-testing.md`.
 * **INST-14** `pyproject.toml` MUST declare the console script `dyness-b3-bms-mqtt`, pointing
   at the application entry point, and use the `uv_build` build backend.
+* **INST-17** The version MUST be single-sourced from `version` in `pyproject.toml`: the
+  package reads its `__version__` from the installed distribution metadata and contains no
+  version literal. release-please MUST bump it (`release-please-config.json` and
+  `.release-please-manifest.json`), and update the root package's version in `uv.lock`
+  through its `extra-files` TOML updater so the lock file stays current (INST-11).
 
 ## 6. README promises
 

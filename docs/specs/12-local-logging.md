@@ -142,6 +142,12 @@ the next UTC day and mixes layouts within the day of the upgrade.
 * **LOG-17** Housekeeping MUST be idempotent: a second run on the same UTC day after a
   successful run MUST change nothing.
 
+With `LOCAL_LOG_COMPRESS_AFTER_DAYS` = 0, the first hourly run after midnight UTC may gzip
+yesterday's file while the logger still holds it open, because a file is closed only at the
+first write of the new day (LOG-04). No data is lost on Linux: everything written to it has
+already been flushed, so the gzip copy reads it in full before the name is unlinked, and
+nothing more is written to the old handle before it is closed.
+
 With the default values from `08-configuration.md`, yesterday's files stay plain for direct
 reading, older files are compressed, and about three months are kept. At
 `LOCAL_LOG_INTERVAL_S` = 10 and `MODULE_COUNT` = 3 a day is roughly 5 MB of module rows and

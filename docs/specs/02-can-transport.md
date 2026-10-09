@@ -53,6 +53,12 @@ Variables referenced here (`CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_R
 * **CAN-04** `open()` MUST construct the bus with exactly the keyword arguments in the table
   for the configured `CAN_INTERFACE`. A unit test MUST assert the arguments for each
   interface with `can.Bus` replaced by a recorder.
+
+  `can.Bus` also merges any python-can configuration file and `CAN_*` environment variables
+  it finds into its keyword arguments. The service passes every setting above explicitly, so
+  those win over anything python-can loads that way; only a key the service does not pass
+  (such as `bitrate` from `CAN_BITRATE` with socketcan) can still be added.
+
 * **CAN-05** For `gs_usb` on macOS only (`sys.platform == "darwin"`), `open()` MUST replace
   `usb.core.Device.is_kernel_driver_active` with a function returning `False` before
   constructing the bus. On macOS libusb reports a kernel driver as active on the adapter's
@@ -125,6 +131,13 @@ The acceptance set is:
 * **CAN-17** **MANUAL** On the real SH-C31A, opening with `gs_usb` in listen-only mode MUST
   produce an adapter that receives the stack's traffic and does not ACK (verified by the
   hardware acceptance checklist).
+
+  On the macOS development path only, python-can's `gs_usb` `shutdown()` (with an `index`)
+  re-runs the adapter's `start()` and `stop()` to reset it, and that happens in normal mode,
+  outside the window in which CAN-16 forces listen-only. On `gs_usb`, a USB write timeout
+  from `send` maps to `OS_ERROR` (a bus exception) and an absent adapter at `open` to
+  `OPEN_FAILED`, per the §8 table.
+
 * **CAN-18** With `CAN_INTERFACE=slcan` hardware listen-only is not used. When
   `CAN_LISTEN_ONLY=true` the transport MUST log a `WARNING` at open that the adapter is in
   normal mode and only software refusal (CAN-14) applies.

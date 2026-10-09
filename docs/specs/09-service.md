@@ -123,11 +123,15 @@ Why some of these are set or left out (all directives exist in systemd 252):
   does not reload configuration. The handler only sets a flag. The main loop notices it within
   one receive timeout and runs the clean-stop sequence:
   1. `STOPPING=1` (SVC-09);
-  2. publish `<MQTT_BASE_TOPIC>/status` = `offline` and the final service state
-     (`06-mqtt.md`), waiting at most 2 s;
+  2. publish `<MQTT_BASE_TOPIC>/status` = `offline` (retained) and the final service state
+     (`06-mqtt.md`) without waiting for them, and close the local history (LOG-10);
   3. `bus.shutdown()` on the CAN bus, so the adapter is released cleanly (see the adapter
      stall quirk in `../dyness-debug/docs/protocol.md`);
-  4. disconnect from MQTT and exit with status 0.
+  4. stop the MQTT publisher (MQTT-10), which publishes the retained `offline` again, waits
+     at most 2 s for it and disconnects, then exit with status 0.
+
+  The duplicate retained `offline` is accepted: it lets the bus be released in step 3
+  without first waiting on the broker.
 * **SVC-12** The clean-stop sequence MUST finish within 10 s so that it stays inside
   `TimeoutStopSec`. Further signals received during the sequence MUST be ignored.
 * **SVC-13** The `Exit` action (HEALTH-27) MUST run steps 1–4 of SVC-11 but exit with its own
@@ -270,7 +274,7 @@ These items are covered by the hardware acceptance checklist in `11-testing.md`:
 
 | ID | Check |
 |---|---|
-| SVC-02 | `systemd-analyze verify` is clean on the Pi |
+| SVC-02 | `systemd-analyze verify` on the installed unit reports no unknown directives |
 | SVC-10 | Watchdog restarts a frozen main loop |
 | SVC-19 | Exit 76 revives a stalled adapter without a replug |
 | SVC-21 | Hotplug brings the link and the service back |

@@ -69,7 +69,7 @@ This is the mechanism behind `00-overview.md` §4.4.
 * **TEST-09** At the end of every session the plugin MUST print a one-line summary (counts of
   must / covered / manual / should). With `--req-report` it MUST print the full matrix:
   identifier, status, and the node IDs of covering tests, followed by the list of `manual`
-  identifiers for ticking against §8.
+  identifiers for ticking against the hardware acceptance checklist in §10.
 * **TEST-10** The plugin MUST have its own tests using `pytester` with a throwaway
   `docs/specs/` tree covering each failure rule and the narrowed-run downgrade.
 
@@ -248,8 +248,8 @@ show can0` and the Home Assistant devices. Times are given by variable name; see
 
 | # | Step | Expected observation |
 |---|---|---|
-| 1 | Fresh install, `CAN_LISTEN_ONLY=true`, start the service | `can0` up in listen-only mode (`ip -d link`); TX packet counter stays 0; health reaches HEALTHY or DEGRADED with cells stale; module broadcast entities (pack V, current, SOC, min/max cell) populate in HA; cell sensors stay unknown unless a cell stream is still running from an earlier poll; inverter shows no CAN fault; **UNVERIFIED** facts in `01-protocol.md` checked against real frames |
-| 2 | Set `CAN_LISTEN_ONLY=false`, `sudo make restart` | Exactly one poll per module logged at start, staggered by `POLL_STAGGER_S`; TX counter rises by `MODULE_COUNT` plus echoes; all 15 cells per module populate within `START_GRACE_S`; M2 #8 and M3 #9 read lowest at rest as in `../dyness-debug`; inverter charge/discharge limits unchanged; frames still received an hour later (no RX stall) |
+| 1 | Fresh install with the README quick-start commands (INST-15), `CAN_LISTEN_ONLY=true`, start the service | Service `active (running)` (INST-15); `can0` up in listen-only mode (`ip -d link`); TX packet counter stays 0; health reaches HEALTHY or DEGRADED with cells stale; module broadcast entities (pack V, current, SOC, min/max cell) populate in HA; cell sensors stay unknown unless a cell stream is still running from an earlier poll; inverter shows no CAN fault; **UNVERIFIED** facts in `01-protocol.md` checked against real frames |
+| 2 | Set `CAN_LISTEN_ONLY=false`, `sudo make restart` | Exactly one poll per module logged at start, staggered by `POLL_STAGGER_S`; TX counter rises by `MODULE_COUNT` plus echoes; all 15 cells per module populate within `START_GRACE_S`; M2 #8 and M3 #9 read lowest at rest as in `../dyness-debug`; inverter charge/discharge limits unchanged; frames still received an hour later (no RX stall; if it stalls and the escalation reaches exit 76, the USB reset brings the adapter back without a replug or the log names the failed step, SVC-19) |
 | 3 | Unplug the adapter for 2 min, then replug | STALE within `BUS_SILENCE_S`; reopen attempts; exit 75, restart, DEAD while the adapter is absent (module availability offline, service diagnostics show dead and the reason); on replug the udev rule brings `can0` up and the service returns to HEALTHY without intervention; HA module entities flip unavailable then back |
 | 4 | As step 3 but leave unplugged past `DEAD_USB_RESET_S` | Exit 76 logged; `recover` attempts a USB reset, logs that no device was found and exits 0; service restarts into DEAD again |
 | 5 | `sudo ip link set can0 down` | STALE; in-process reopen fails; exit 75; `recover` bounces the link and `can-up` restores it; HEALTHY again; escalation counter resets after `RECOVERY_RESET_S` healthy |
@@ -262,6 +262,8 @@ show can0` and the Home Assistant devices. Times are given by variable name; see
 | 12 | 24 h soak in normal operation | No unexpected exits (`NRestarts` 0, `last_exit_code` and `last_exit_result` diagnostics unchanged); RSS from `systemctl status` within TEST-41 and not growing by more than 5 MB between hour 1 and hour 24; average CPU within TEST-41 (`ps -o %cpu,rss`); journal free of repeated warnings |
 | 13 | Local log housekeeping: `sudo ls -l /var/lib/dyness-b3-bms-mqtt/logs`, then create `modules-<date>.csv` dated two days ago and `stack-<date>.csv` dated `LOCAL_LOG_RETENTION_DAYS` + 1 days ago (`sudo touch`), `sudo make restart`, list again | Today's `events-` file exists, and today's `modules-` and `stack-` files have one header line each and rows every `LOCAL_LOG_INTERVAL_S` (`sudo tail`); values match the MQTT state for the same `ts`; after the restart the two-day-old file is gzipped (original gone), the over-retention file is deleted, today's files are untouched and still have a single header; `local_log` shows `ok` in HA |
 | 14 | Disk full: check `sudo tune2fs -l` on the root device shows a non-zero reserved block count (so root and the journal keep working), fill the root filesystem for the service user (`df -B1 /` for `Avail`, then `sudo fallocate -l <Avail> /var/tmp/fill`), wait two `LOCAL_LOG_INTERVAL_S`, then `sudo rm /var/tmp/fill` | While full: exactly one `ERROR` line naming the log file and the error; `local_log` shows `error`; module, stack and service state keep publishing; no exit or health change; watchdog fed. After freeing space: `local_log` back to `ok` and `local log recovered` logged at the next hourly housekeeping; rows resume; after `sudo make restart` the service starts with `local_log` `ok` (LOG-22) |
+| 15 | `systemd-analyze verify /etc/systemd/system/dyness-b3-bms-mqtt.service` (SVC-02) | No unknown directives reported |
+| 16 | Edit `/etc/default/dyness-b3-bms-mqtt`, note its `sha256sum`, run `sudo make install` again (INST-16) | Install finishes without errors; the env file's `sha256sum` is unchanged; the service was restarted |
 
 ## 11. Performance
 

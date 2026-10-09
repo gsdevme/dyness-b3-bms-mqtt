@@ -244,8 +244,9 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
 ## 9. Numbering and field-to-key mapping
 
 * **TEL-26** Cell numbers, module numbers and temperature sensor numbers MUST be 1-based in
-  every snapshot field and in all published data. The 0-based `0x22` numbers are converted
-  once, in the store.
+  every snapshot field and in all published data. The 0-based `0x22` numbers MUST be
+  converted exactly once, by the decoder (`01-protocol.md` PROTO-11), before telemetry sees
+  them; the store receives 1-based numbers and does not convert again.
 
 Snapshot fields map one-to-one to the JSON keys in `06-mqtt.md` with the same name, except:
 
