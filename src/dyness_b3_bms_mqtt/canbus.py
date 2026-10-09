@@ -193,7 +193,17 @@ def accepts(arbitration_id: int, extended: bool) -> bool:
 
 
 def bus_kwargs(settings: Settings) -> dict[str, Any]:
-    """Return the ``can.Bus`` keyword arguments for ``CAN_INTERFACE`` (CAN-04, CAN-08)."""
+    """Return the ``can.Bus`` keyword arguments for ``CAN_INTERFACE`` (CAN-04, CAN-08).
+
+    ``ignore_config=True`` stops python-can merging its configuration files and ``CAN_*``
+    environment variables into these arguments, so a malformed file or ``CAN_CONFIG`` cannot
+    crash the open and nothing outside the settings can add a key.
+    """
+    return {**_interface_kwargs(settings), "ignore_config": True}
+
+
+def _interface_kwargs(settings: Settings) -> dict[str, Any]:
+    """Return the table's ``can.Bus`` keyword arguments for ``CAN_INTERFACE`` (CAN-04)."""
     interface = settings.can_interface
     channel = settings.can_channel
     if interface == "socketcan":
