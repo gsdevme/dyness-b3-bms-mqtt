@@ -46,6 +46,17 @@ LOG_DIRECTORY: Final = "logs"
 HOUSEKEEPING_INTERVAL_S: Final = 3600.0
 """Seconds between housekeeping runs on the monotonic clock (LOG-13)."""
 
+MAX_COMPRESS_PER_RUN: Final = 8
+"""The most files one housekeeping run gzips (LOG-15).
+
+Housekeeping runs on the main loop, so a backlog (after lowering
+``LOCAL_LOG_COMPRESS_AFTER_DAYS``, say) must not hold it past the systemd watchdog. Files
+left over are gzipped by the following hourly runs.
+"""
+
+GZIP_COMPRESSLEVEL: Final = 6
+"""The gzip level for old files: several times faster than 9, for slightly larger files."""
+
 MODULE_COLUMNS: Final[tuple[str, ...]] = (
     "ts",
     "module",
@@ -132,7 +143,12 @@ class GzipSink(Protocol):
         """Finish the gzip stream and close the file."""
 
 
-type GzipOpen = Callable[[Path, Literal["wb"]], GzipSink]
+class GzipOpen(Protocol):
+    """How :class:`LocalLog` opens a compressed file; ``gzip.open`` by default."""
+
+    def __call__(self, path: Path, mode: Literal["wb"], /, *, compresslevel: int) -> GzipSink:
+        """Open ``path`` for writing gzip data at ``compresslevel``."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,8 +175,8 @@ class LocalLog:
 
     ``directory`` is the state directory, or ``None`` when ``$STATE_DIRECTORY`` is unset.
     ``wall`` is Unix seconds and stamps the exit event written by :meth:`close`.
-    ``gzip_open(path, "wb")`` opens a compressed file for housekeeping. No method raises
-    ``OSError``: :attr:`status` reports the outcome instead.
+    ``gzip_open(path, "wb", compresslevel=…)`` opens a compressed file for housekeeping. No
+    method raises ``OSError``: :attr:`status` reports the outcome instead.
     """
 
     def __init__(
@@ -297,7 +313,10 @@ class LocalLog:
             raise first
 
     def _tidy(self, now_wall: float) -> None:
-        """Create the log directory, then delete and compress as planned (LOG-14..16)."""
+        """Create the log directory, then delete and compress as planned (LOG-14..16).
+
+        At most :data:`MAX_COMPRESS_PER_RUN` files are compressed, in the plan's order.
+        """
         settings = self._settings
         with _step("create", self._directory):
             self._directory.mkdir(exist_ok=True)
@@ -311,13 +330,15 @@ class LocalLog:
         for path in to_delete:
             with _step("delete", path):
                 path.unlink(missing_ok=True)
-        for path in to_gzip:
+        for path in to_gzip[:MAX_COMPRESS_PER_RUN]:
             self._compress(path)
 
     def _compress(self, path: Path) -> None:
         """Gzip ``path`` to ``<name>.gz``; delete it only once that is written and closed."""
         with _step("compress", path), open(path, "rb") as source:
-            sink = self._gzip_open(path.with_name(path.name + _GZ), "wb")
+            sink = self._gzip_open(
+                path.with_name(path.name + _GZ), "wb", compresslevel=GZIP_COMPRESSLEVEL
+            )
             try:
                 shutil.copyfileobj(source, sink)
             finally:

@@ -14,7 +14,7 @@ import logging
 from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 
@@ -24,6 +24,7 @@ from dyness_b3_bms_mqtt.config import Settings
 from dyness_b3_bms_mqtt.discovery import LOCAL_LOG_OPTIONS
 from dyness_b3_bms_mqtt.linkstate import CanState
 from dyness_b3_bms_mqtt.localog import (
+    MAX_COMPRESS_PER_RUN,
     MODULE_COLUMNS,
     STACK_COLUMNS,
     LocalLog,
@@ -410,6 +411,36 @@ def test_housekeeping_skips_today_and_is_idempotent(state_dir: Path, wall: FakeC
     assert status(log) is LocalLogStatus.OK
 
 
+@pytest.mark.req("LOG-13", "LOG-15", "LOG-17")
+def test_compress_capped_per_run(state_dir: Path, wall: FakeClock) -> None:
+    settings = make_settings(LOCAL_LOG_COMPRESS_AFTER_DAYS="1", LOCAL_LOG_RETENTION_DAYS="30")
+    directory = logs(state_dir)
+    names = [dated(prefix, age) for prefix in ("modules", "stack") for age in range(2, 8)]
+    touch(directory, *names)
+    opened: list[tuple[str, int]] = []
+
+    def recording(path: Path, mode: Literal["wb"], *, compresslevel: int) -> Any:
+        opened.append((path.name, compresslevel))
+        return gzip.open(path, mode, compresslevel=compresslevel)
+
+    log = started(settings, state_dir, wall, gzip_open=recording)
+    assert MAX_COMPRESS_PER_RUN == 8
+    assert len(opened) == MAX_COMPRESS_PER_RUN
+    assert {level for _, level in opened} == {6}
+    assert sum(name.endswith(".gz") for name in listing(directory)) == MAX_COMPRESS_PER_RUN
+    assert sum(not name.endswith(".gz") for name in listing(directory)) == 4
+
+    log.housekeep(wall())
+    assert len(opened) == len(names)
+    assert sorted(listing(directory)) == sorted(f"{name}.gz" for name in names)
+    for name in names:
+        assert gzip.decompress(listing(directory)[f"{name}.gz"]) == f"{name}\n".encode()
+
+    log.housekeep(wall())
+    assert len(opened) == len(names)
+    assert status(log) is LocalLogStatus.OK
+
+
 @pytest.mark.req("LOG-15", "LOG-18", "LOG-19")
 def test_gzip_failure_keeps_original(
     state_dir: Path, wall: FakeClock, caplog: pytest.LogCaptureFixture
@@ -419,10 +450,10 @@ def test_gzip_failure_keeps_original(
 
     calls: list[Path] = []
 
-    def failing(path: Path, mode: str) -> Any:
+    def failing(path: Path, mode: Literal["wb"], *, compresslevel: int) -> Any:
         calls.append(path)
         if len(calls) > 1:
-            return gzip.open(path, mode)
+            return gzip.open(path, mode, compresslevel=compresslevel)
         with gzip.open(path, "wb") as handle:
             handle.write(b"partial")
         raise FULL
