@@ -9,7 +9,6 @@ output on top of that (TEST-31).
 import json
 import re
 from collections.abc import Iterator, Mapping
-from functools import cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -34,9 +33,16 @@ from dyness_b3_bms_mqtt.protocol import FLAG_NAMES
 from dyness_b3_bms_mqtt.status import HealthState
 from tests.plugins.golden import Golden
 from tests.support.settings import make_settings
+from tests.support.spec import (
+    expand,
+    payload_keys,
+    requirement,
+    section,
+    spec_text,
+    table_rows,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
-SPECS = ROOT / "docs" / "specs"
 GOLDEN_DISCOVERY = ROOT / "tests" / "golden" / "discovery"
 VERSION = "0.1.0"
 
@@ -127,69 +133,6 @@ def render(template: str, state: Mapping[str, object]) -> str:
     expression = expression.removesuffix(" | tojson").replace(" is none", " is None")
     value = eval(expression, {"__builtins__": {}}, {"value_json": SimpleNamespace(**state)})
     return json.dumps(value) if tojson else str(value)
-
-
-@cache
-def spec_text(name: str) -> str:
-    return (SPECS / name).read_text(encoding="utf-8")
-
-
-def requirement(name: str, ident: str) -> list[str]:
-    """Return the lines of requirement ``ident`` in spec ``name``, up to the next one."""
-    lines = spec_text(name).splitlines()
-    start = next(i for i, line in enumerate(lines) if f"**{ident}**" in line)
-    end = next(
-        (
-            i
-            for i in range(start + 1, len(lines))
-            if lines[i].startswith(("* **", "#", "Example:", "Template codes:"))
-        ),
-        len(lines),
-    )
-    return lines[start:end]
-
-
-def section(name: str, heading: str) -> list[str]:
-    lines = spec_text(name).splitlines()
-    start = lines.index(heading)
-    end = next(i for i in range(start + 1, len(lines)) if lines[i].startswith("#"))
-    return lines[start:end]
-
-
-def table_rows(lines: list[str]) -> list[list[str]]:
-    """Return the cells of each table body row whose first cell starts with a code span."""
-    return [
-        [cell.strip() for cell in line.strip().strip("|").split("|")]
-        for line in lines
-        if re.match(r"\s*\| `", line)
-    ]
-
-
-def expand(key_cell: str, name_cell: str = "") -> list[tuple[str, str]]:
-    """Expand a key cell (and its name) into ``(key, name)`` pairs.
-
-    Handles a single key, a comma list and a ``first … last`` numbered range.
-    """
-    keys = re.findall(r"`([^`]+)`", key_cell)
-    if "…" not in key_cell:
-        return [(key, name_cell) for key in keys]
-    first, last = keys
-    lo_match = re.search(r"[0-9]+", first)
-    hi_match = re.search(r"[0-9]+", last)
-    assert lo_match and hi_match
-    width = len(lo_match.group())
-    name_first = name_cell.split(" … ")[0]
-    name_match = re.search(r"[0-9]+", name_first)
-    pairs = []
-    for n in range(int(lo_match.group()), int(hi_match.group()) + 1):
-        key = f"{first[: lo_match.start()]}{n:0{width}d}{first[lo_match.end() :]}"
-        name = (
-            f"{name_first[: name_match.start()]}{n}{name_first[name_match.end() :]}"
-            if name_match
-            else name_cell
-        )
-        pairs.append((key, name))
-    return pairs
 
 
 def dash(cell: str) -> str | None:
@@ -292,12 +235,6 @@ def expected_options(
         options["state_topic"] = service_topic
     options["expire_after"] = expire_after
     return options
-
-
-def payload_keys(ident: str) -> set[str]:
-    return {
-        key for cells in table_rows(requirement("06-mqtt.md", ident)) for key, _ in expand(cells[0])
-    }
 
 
 def not_exposed() -> dict[str, set[str]]:

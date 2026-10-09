@@ -18,6 +18,7 @@ from typing import Any, Final, Literal
 from dyness_b3_bms_mqtt.config import MAX_MODULES, Settings
 from dyness_b3_bms_mqtt.linkstate import CanState
 from dyness_b3_bms_mqtt.status import HealthState
+from dyness_b3_bms_mqtt.topics import Topics
 
 SUPPORT_URL: Final = "https://github.com/gsdevme/dyness-b3-bms-mqtt"
 ORIGIN_NAME: Final = "dyness-b3-bms-mqtt"
@@ -327,11 +328,6 @@ def _availability(*topics: str) -> list[dict[str, str]]:
     ]
 
 
-def _config_topic(settings: Settings, identifier: str) -> str:
-    """Return ``<P>/device/<identifier>/config``."""
-    return f"{settings.ha_discovery_prefix}/device/{identifier}/config"
-
-
 def _encode(payload: dict[str, Any]) -> str:
     """Return ``payload`` as compact UTF-8 JSON, keeping key order and non-ASCII characters."""
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
@@ -340,6 +336,7 @@ def _encode(payload: dict[str, Any]) -> str:
 def _device_payload(
     settings: Settings,
     version: str,
+    topics: Topics,
     *,
     identifier: str,
     device: dict[str, Any],
@@ -353,14 +350,13 @@ def _device_payload(
     ``availability_mode`` is set only when there is more than one availability topic, which
     is the case for module devices.
     """
-    service_topic = f"{settings.mqtt_base_topic}/service/state"
     rendered = {
         component.key: _component(
             component,
             unique_id=f"{identifier}_{component.key}",
             expire_after=settings.expire_after_s,
             state_topic=state_topic,
-            service_topic=service_topic,
+            service_topic=topics.service_state,
         )
         for component in components
     }
@@ -389,12 +385,12 @@ def build_discovery(settings: Settings, version: str) -> list[Message]:
     """
     if not settings.ha_discovery:
         return []
-    node, base = settings.ha_node_id, settings.mqtt_base_topic
-    stack_id = f"{node}_stack"
-    status = f"{base}/status"
+    topics = Topics(settings)
+    stack_id = topics.stack_id
     stack = _device_payload(
         settings,
         version,
+        topics,
         identifier=stack_id,
         device={
             "identifiers": [stack_id],
@@ -403,16 +399,17 @@ def build_discovery(settings: Settings, version: str) -> list[Message]:
             "model": f"{MODEL} \N{MULTIPLICATION SIGN}{settings.module_count}",
         },
         kind="stack",
-        state_topic=f"{base}/stack/state",
-        availability=_availability(status),
+        state_topic=topics.stack_state,
+        availability=_availability(topics.status),
         components=(*STACK_COMPONENTS, *SERVICE_COMPONENTS),
     )
-    messages = [(_config_topic(settings, stack_id), _encode(stack))]
+    messages = [(topics.discovery_stack, _encode(stack))]
     for module in range(1, settings.module_count + 1):
-        module_id = f"{node}_m{module}"
+        module_id = topics.module_id(module)
         payload = _device_payload(
             settings,
             version,
+            topics,
             identifier=module_id,
             device={
                 "identifiers": [module_id],
@@ -422,13 +419,13 @@ def build_discovery(settings: Settings, version: str) -> list[Message]:
                 "via_device": stack_id,
             },
             kind="module",
-            state_topic=f"{base}/module/{module}/state",
-            availability=_availability(status, f"{base}/module/{module}/availability"),
+            state_topic=topics.module_state(module),
+            availability=_availability(topics.status, topics.module_availability(module)),
             components=MODULE_COMPONENTS,
         )
-        messages.append((_config_topic(settings, module_id), _encode(payload)))
+        messages.append((topics.discovery_module(module), _encode(payload)))
     messages.extend(
-        (_config_topic(settings, f"{node}_m{module}"), "")
+        (topics.discovery_module(module), "")
         for module in range(settings.module_count + 1, MAX_MODULES + 1)
     )
     return messages
