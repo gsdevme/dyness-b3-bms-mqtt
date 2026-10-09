@@ -1,0 +1,560 @@
+{
+  "payload": {
+    "availability": [
+      {
+        "payload_available": "online",
+        "payload_not_available": "offline",
+        "topic": "garage/battery/status"
+      }
+    ],
+    "components": {
+      "alert_any_bms_alarm": {
+        "device_class": "problem",
+        "expire_after": 90,
+        "name": "BMS alarm",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "garage_bank_stack_alert_any_bms_alarm",
+        "value_template": "{{ None if value_json.alert_any_bms_alarm is none else ('ON' if value_json.alert_any_bms_alarm else 'OFF') }}"
+      },
+      "alert_any_bms_protection": {
+        "device_class": "problem",
+        "expire_after": 90,
+        "name": "BMS protection",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "garage_bank_stack_alert_any_bms_protection",
+        "value_template": "{{ None if value_json.alert_any_bms_protection is none else ('ON' if value_json.alert_any_bms_protection else 'OFF') }}"
+      },
+      "alert_any_cell_low": {
+        "device_class": "problem",
+        "expire_after": 90,
+        "name": "Low cell alert",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "garage_bank_stack_alert_any_cell_low",
+        "value_template": "{{ None if value_json.alert_any_cell_low is none else ('ON' if value_json.alert_any_cell_low else 'OFF') }}"
+      },
+      "alert_any_cell_spread": {
+        "device_class": "problem",
+        "expire_after": 90,
+        "name": "Cell spread alert",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "garage_bank_stack_alert_any_cell_spread",
+        "value_template": "{{ None if value_json.alert_any_cell_spread is none else ('ON' if value_json.alert_any_cell_spread else 'OFF') }}"
+      },
+      "alert_current_imbalance": {
+        "device_class": "problem",
+        "expire_after": 90,
+        "name": "Current imbalance alert",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "unique_id": "garage_bank_stack_alert_current_imbalance",
+        "value_template": "{{ None if value_json.alert_current_imbalance is none else ('ON' if value_json.alert_current_imbalance else 'OFF') }}"
+      },
+      "avg_soc": {
+        "device_class": "battery",
+        "expire_after": 90,
+        "name": "Average module state of charge",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_avg_soc",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.avg_soc }}"
+      },
+      "bms_current_a": {
+        "device_class": "current",
+        "expire_after": 90,
+        "name": "BMS current",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_bms_current_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.bms_current_a }}"
+      },
+      "bms_soc": {
+        "device_class": "battery",
+        "expire_after": 90,
+        "name": "State of charge",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_bms_soc",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.bms_soc }}"
+      },
+      "bms_soh": {
+        "expire_after": 90,
+        "name": "State of health",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_bms_soh",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.bms_soh }}"
+      },
+      "bus_age_s": {
+        "device_class": "duration",
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Bus age",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_bus_age_s",
+        "unit_of_measurement": "s",
+        "value_template": "{{ value_json.bus_age_s }}"
+      },
+      "can_berr_rx": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "CAN RX error counter",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_can_berr_rx",
+        "value_template": "{{ value_json.can_berr_rx }}"
+      },
+      "can_berr_tx": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "CAN TX error counter",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_can_berr_tx",
+        "value_template": "{{ value_json.can_berr_tx }}"
+      },
+      "can_restarts": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "CAN bus-off restarts",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_can_restarts",
+        "value_template": "{{ value_json.can_restarts }}"
+      },
+      "can_state": {
+        "device_class": "enum",
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "CAN state",
+        "options": [
+          "error-active",
+          "error-warning",
+          "error-passive",
+          "bus-off",
+          "stopped",
+          "down",
+          "absent"
+        ],
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_can_state",
+        "value_template": "{{ value_json.can_state }}"
+      },
+      "chg_limit_a": {
+        "device_class": "current",
+        "expire_after": 90,
+        "name": "Charge current limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_chg_limit_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.chg_limit_a }}"
+      },
+      "chg_limit_v": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Charge voltage limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_chg_limit_v",
+        "unit_of_measurement": "V",
+        "value_template": "{{ value_json.chg_limit_v }}"
+      },
+      "dis_limit_a": {
+        "device_class": "current",
+        "expire_after": 90,
+        "name": "Discharge current limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_dis_limit_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.dis_limit_a }}"
+      },
+      "dis_limit_v": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Discharge voltage limit",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_dis_limit_v",
+        "unit_of_measurement": "V",
+        "value_template": "{{ value_json.dis_limit_v }}"
+      },
+      "dropped_frames": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Dropped frames",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_dropped_frames",
+        "value_template": "{{ value_json.dropped_frames }}"
+      },
+      "echo_frames": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Echoed poll frames",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_echo_frames",
+        "value_template": "{{ value_json.echo_frames }}"
+      },
+      "error_frames": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "CAN error frames",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_error_frames",
+        "value_template": "{{ value_json.error_frames }}"
+      },
+      "escalation": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Recovery escalation",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_escalation",
+        "value_template": "{{ value_json.escalation }}"
+      },
+      "health": {
+        "device_class": "enum",
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Health",
+        "options": [
+          "starting",
+          "healthy",
+          "degraded",
+          "stale",
+          "recovering",
+          "dead"
+        ],
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_health",
+        "value_template": "{{ value_json.health }}"
+      },
+      "health_reason": {
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Health reason",
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_health_reason",
+        "value_template": "{{ value_json.health_reason }}"
+      },
+      "highest_cell": {
+        "expire_after": 90,
+        "name": "Highest cell",
+        "platform": "sensor",
+        "unique_id": "garage_bank_stack_highest_cell",
+        "value_template": "{{ value_json.highest_cell }}"
+      },
+      "highest_module": {
+        "expire_after": 90,
+        "name": "Highest cell module",
+        "platform": "sensor",
+        "unique_id": "garage_bank_stack_highest_module",
+        "value_template": "{{ value_json.highest_module }}"
+      },
+      "highest_mv": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Highest cell voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_highest_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.highest_mv }}"
+      },
+      "imbalance_pct": {
+        "expire_after": 90,
+        "name": "Current imbalance",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_imbalance_pct",
+        "unit_of_measurement": "%",
+        "value_template": "{{ value_json.imbalance_pct }}"
+      },
+      "last_exit_code": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Last exit code",
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_last_exit_code",
+        "value_template": "{{ value_json.last_exit_code }}"
+      },
+      "last_exit_result": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Last exit result",
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_last_exit_result",
+        "value_template": "{{ value_json.last_exit_result }}"
+      },
+      "local_log": {
+        "device_class": "enum",
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Local log",
+        "options": [
+          "ok",
+          "disabled",
+          "error"
+        ],
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_local_log",
+        "value_template": "{{ value_json.local_log }}"
+      },
+      "lowest_cell": {
+        "expire_after": 90,
+        "name": "Lowest cell",
+        "platform": "sensor",
+        "unique_id": "garage_bank_stack_lowest_cell",
+        "value_template": "{{ value_json.lowest_cell }}"
+      },
+      "lowest_module": {
+        "expire_after": 90,
+        "name": "Lowest cell module",
+        "platform": "sensor",
+        "unique_id": "garage_bank_stack_lowest_module",
+        "value_template": "{{ value_json.lowest_module }}"
+      },
+      "lowest_mv": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Lowest cell voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_lowest_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.lowest_mv }}"
+      },
+      "malformed_frames": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Malformed frames",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_malformed_frames",
+        "value_template": "{{ value_json.malformed_frames }}"
+      },
+      "module_count_bms": {
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "BMS module count",
+        "platform": "sensor",
+        "unique_id": "garage_bank_stack_module_count_bms",
+        "value_template": "{{ value_json.module_count_bms }}"
+      },
+      "modules_online": {
+        "expire_after": 90,
+        "name": "Modules online",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_modules_online",
+        "value_template": "{{ value_json.modules_online }}"
+      },
+      "mqtt_reconnects": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "MQTT reconnects",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_mqtt_reconnects",
+        "value_template": "{{ value_json.mqtt_reconnects }}"
+      },
+      "polling_suspended": {
+        "device_class": "problem",
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Polling suspended",
+        "payload_off": "OFF",
+        "payload_on": "ON",
+        "platform": "binary_sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_polling_suspended",
+        "value_template": "{{ None if value_json.polling_suspended is none else ('ON' if value_json.polling_suspended else 'OFF') }}"
+      },
+      "polls_sent": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Polls sent",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_polls_sent",
+        "value_template": "{{ value_json.polls_sent }}"
+      },
+      "service_restarts": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Service restarts",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_service_restarts",
+        "value_template": "{{ value_json.service_restarts }}"
+      },
+      "spread_mv": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Cell spread",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_spread_mv",
+        "unit_of_measurement": "mV",
+        "value_template": "{{ value_json.spread_mv }}"
+      },
+      "temp_c": {
+        "device_class": "temperature",
+        "expire_after": 90,
+        "name": "Temperature",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_temp_c",
+        "unit_of_measurement": "°C",
+        "value_template": "{{ value_json.temp_c }}"
+      },
+      "total_current_a": {
+        "device_class": "current",
+        "expire_after": 90,
+        "name": "Current",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 1,
+        "unique_id": "garage_bank_stack_total_current_a",
+        "unit_of_measurement": "A",
+        "value_template": "{{ value_json.total_current_a }}"
+      },
+      "unknown_frames": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Unknown frames",
+        "platform": "sensor",
+        "state_class": "total_increasing",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_unknown_frames",
+        "value_template": "{{ value_json.unknown_frames }}"
+      },
+      "uptime_s": {
+        "device_class": "duration",
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Uptime",
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "suggested_display_precision": 0,
+        "unique_id": "garage_bank_stack_uptime_s",
+        "unit_of_measurement": "s",
+        "value_template": "{{ value_json.uptime_s }}"
+      },
+      "version": {
+        "enabled_by_default": false,
+        "entity_category": "diagnostic",
+        "expire_after": 90,
+        "name": "Version",
+        "platform": "sensor",
+        "state_topic": "garage/battery/service/state",
+        "unique_id": "garage_bank_stack_version",
+        "value_template": "{{ value_json.version }}"
+      },
+      "voltage_v": {
+        "device_class": "voltage",
+        "expire_after": 90,
+        "name": "Voltage",
+        "platform": "sensor",
+        "state_class": "measurement",
+        "suggested_display_precision": 2,
+        "unique_id": "garage_bank_stack_voltage_v",
+        "unit_of_measurement": "V",
+        "value_template": "{{ value_json.voltage_v }}"
+      }
+    },
+    "device": {
+      "identifiers": [
+        "garage_bank_stack"
+      ],
+      "manufacturer": "Dyness",
+      "model": "B3 ×2",
+      "name": "Garage battery Stack"
+    },
+    "origin": {
+      "name": "dyness-b3-bms-mqtt",
+      "support_url": "https://github.com/gsdevme/dyness-b3-bms-mqtt",
+      "sw_version": "0.1.0"
+    },
+    "qos": 0,
+    "state_topic": "garage/battery/stack/state"
+  },
+  "topic": "ha/device/garage_bank_stack/config"
+}
