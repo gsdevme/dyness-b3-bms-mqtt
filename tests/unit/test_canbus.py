@@ -517,8 +517,18 @@ def test_slcan_listen_only_warns(caplog: pytest.LogCaptureFixture) -> None:
     assert recorder.bus.sent == []
 
 
+LOADED_RUNNER_S = 0.6
+"""Upper bound for a real-time ``recv`` on a loaded CI runner; the 50 ms is shown on a FakeClock."""
+
+
 @pytest.mark.req("CAN-09", "CAN-12")
 def test_recv_filters_without_ending_early_and_within_50ms(can_channel: str) -> None:
+    """A discarded frame never ends ``recv`` early, and the deadline overshoots by at most 50 ms.
+
+    The FakeClock half proves the deadline arithmetic exactly. The live half only proves
+    that ``recv`` neither returns before its timeout nor waits it out once an accepted frame
+    arrives; its upper bound is wide so a loaded runner cannot make it flaky.
+    """
     fake_clock = FakeClock(100.0)
     recorder = Recorder(clock=fake_clock)
     real = transport(make_settings(), recorder, fake_clock)
@@ -546,18 +556,18 @@ def test_recv_filters_without_ending_early_and_within_50ms(can_channel: str) -> 
         start = time.monotonic()
         assert live.recv(0.2) is None
         elapsed = time.monotonic() - start
-        assert 0.2 <= elapsed <= 0.25
+        assert 0.2 <= elapsed < LOADED_RUNNER_S
 
         peer.send(msg(0x18F30000))
         timer = threading.Timer(0.05, peer.send, args=(msg(0x18F20103),))
         timer.start()
         start = time.monotonic()
-        heartbeat = live.recv(0.2)
+        heartbeat = live.recv(1.0)
         elapsed = time.monotonic() - start
         timer.join()
         assert isinstance(heartbeat, RxFrame)
         assert (heartbeat.arbitration_id, heartbeat.extended) == (0x18F20103, True)
-        assert 0.04 <= elapsed <= 0.2
+        assert 0.04 <= elapsed < LOADED_RUNNER_S
 
 
 @pytest.mark.req("CAN-11", "CAN-01")

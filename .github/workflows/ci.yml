@@ -41,6 +41,9 @@ jobs:
       # port is published on the runner's localhost.
       MQTT_HOST: localhost
       MQTT_PORT: "1883"
+      # Makes tests/plugins/markers.py fail the mosquitto tests, instead of skipping them,
+      # when the broker is unreachable, so this job cannot pass green with nothing run.
+      MQTT_REQUIRE_BROKER: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0

@@ -123,6 +123,8 @@ def test_markers_registered_and_strict(pytestconfig: pytest.Config) -> None:
     names = {line.split(":")[0].split("(")[0].strip() for line in ini["markers"]}
     assert names == {"req", "integration", "mosquitto", "hardware"}
     assert ini["addopts"] == ["--strict-markers", "--strict-config", "-ra", "--req-strict"]
+    assert ini["timeout"] == 120
+    assert float(pytestconfig.getini("timeout")) == 120
     assert ini["testpaths"] == ["tests"]
     assert ini["pythonpath"] == ["."]
     registered = {line.split(":")[0].split("(")[0] for line in pytestconfig.getini("markers")}
@@ -185,6 +187,10 @@ def test_ci_workflow() -> None:
     services = list(mqtt["services"].values())
     assert [service["image"] for service in services] == ["eclipse-mosquitto:1.6"]
     assert services[0]["ports"] == ["1883:1883"]
-    assert mqtt["env"] == {"MQTT_HOST": "localhost", "MQTT_PORT": "1883"}
+    assert mqtt["env"] == {
+        "MQTT_HOST": "localhost",
+        "MQTT_PORT": "1883",
+        "MQTT_REQUIRE_BROKER": "1",
+    }
     assert setup_uv(mqtt)["with"]["python-version"] == "3.14"
     assert runs(mqtt) == ["uv sync --frozen", "uv run --frozen pytest -m mosquitto"]
