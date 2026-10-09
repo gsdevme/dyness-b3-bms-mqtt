@@ -6,10 +6,13 @@ The markers are registered in ``pyproject.toml``; this plugin gives them their m
   additionally allows them to transmit the module poll; without it they stay listen-only
   (TEST-38).
 * ``mosquitto`` tests are skipped unless a TCP connection to ``MQTT_HOST``:``MQTT_PORT``
-  succeeds within ``BROKER_CONNECT_TIMEOUT_S``.
+  succeeds within ``BROKER_CONNECT_TIMEOUT_S``. With ``MQTT_REQUIRE_BROKER=1`` (set by the
+  CI ``mqtt`` job) an unreachable broker fails them instead, so that job cannot pass green
+  with every test skipped.
 * ``integration`` tests may sleep and are capped at ``INTEGRATION_TIMEOUT_S`` by a
-  pytest-timeout ``timeout`` marker; a stricter per-test ``timeout`` is kept. Every other
-  test has ``time.sleep`` replaced by a function that fails the test.
+  pytest-timeout ``timeout`` marker; a stricter per-test ``timeout`` is kept. A marker beats
+  the suite-wide ``timeout`` ceiling in ``pyproject.toml``, which every other test gets.
+  Every other test also has ``time.sleep`` replaced by a function that fails the test.
 
 Every skip carries its reason so ``-ra`` reports why the test did not run.
 """
@@ -26,6 +29,8 @@ INTEGRATION_TIMEOUT_S = 10.0
 BROKER_CONNECT_TIMEOUT_S = 1.0
 DEFAULT_MQTT_HOST = "localhost"
 DEFAULT_MQTT_PORT = 1883
+REQUIRE_BROKER_ENV = "MQTT_REQUIRE_BROKER"
+_BROKER_REQUIRED = pytest.StashKey[str]()
 
 
 def broker_address(environ: Mapping[str, str]) -> tuple[str, int]:
@@ -82,7 +87,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     An integration test's effective timeout is the smaller of its own ``timeout`` marker and
     ``INTEGRATION_TIMEOUT_S``: unless its own limit is already within the cap, the cap
     marker is put first so it becomes the closest ``timeout`` marker. The broker is probed
-    at most once per session, and only when a ``mosquitto`` test was collected.
+    at most once per session, and only when a ``mosquitto`` test was collected; when it is
+    unreachable and ``MQTT_REQUIRE_BROKER`` is ``1`` the tests are marked to fail rather
+    than skipped.
     """
     cap = pytest.mark.timeout(INTEGRATION_TIMEOUT_S)
     hardware_skip = pytest.mark.skip(reason="--hardware not given")
@@ -97,9 +104,21 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if mosquitto:
         host, port = broker_address(os.environ)
         if not broker_reachable(host, port):
-            broker_skip = pytest.mark.skip(reason=f"broker unreachable at {host}:{port}")
+            reason = f"broker unreachable at {host}:{port}"
+            required = os.environ.get(REQUIRE_BROKER_ENV) == "1"
             for item in mosquitto:
-                item.add_marker(broker_skip)
+                if required:
+                    item.stash[_BROKER_REQUIRED] = f"{reason} and {REQUIRE_BROKER_ENV}=1"
+                else:
+                    item.add_marker(pytest.mark.skip(reason=reason))
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_call(item: pytest.Item) -> None:
+    """Fail a ``mosquitto`` test before it runs when a required broker is unreachable."""
+    reason = item.stash.get(_BROKER_REQUIRED, None)
+    if reason is not None:
+        pytest.fail(reason, pytrace=False)
 
 
 def _refuse_sleep(seconds: float) -> NoReturn:
