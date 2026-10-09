@@ -1,1 +1,1 @@
-"""Helpers shared by tests that inspect repository files."""
+"""Helpers shared by tests: repository file readers and settings builders."""
