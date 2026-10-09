@@ -137,6 +137,11 @@ the next UTC day and mixes layouts within the day of the upgrade.
   `LOCAL_LOG_COMPRESS_AFTER_DAYS` MUST be compressed with gzip to `<name>.gz`, overwriting
   any `<name>.gz` left by an interrupted run. The original MUST be deleted only after the
   `.gz` file has been completely written and closed without error.
+
+  One run compresses at most 8 files (`MAX_COMPRESS_PER_RUN`), at gzip level 6, so a
+  backlog cannot hold the main loop past the watchdog; the next hourly runs take the rest,
+  and LOG-17 applies once none is left.
+
 * **LOG-16** A file, compressed or not, whose age is greater than
   `LOCAL_LOG_RETENTION_DAYS` MUST be deleted instead of being compressed.
 * **LOG-17** Housekeeping MUST be idempotent: a second run on the same UTC day after a
