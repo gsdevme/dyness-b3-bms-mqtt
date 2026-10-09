@@ -28,12 +28,14 @@ jobs:
 
   # Tests marked `mosquitto` against a real broker. The 1.6 image is used because
   # Mosquitto 2.x only accepts anonymous remote clients with a configuration file, which
-  # a service container cannot be given; 1.6 accepts them by default.
+  # a service container cannot be given; 1.6 accepts them by default. The image comes from
+  # the AWS Public ECR mirror of Docker Hub's official library, because unauthenticated
+  # Docker Hub pulls from shared GitHub runners hit the pull rate limit and fail the job.
   mqtt:
     runs-on: ubuntu-latest
     services:
       mosquitto:
-        image: eclipse-mosquitto:1.6
+        image: public.ecr.aws/docker/library/eclipse-mosquitto:1.6
         ports:
           - "1883:1883"
     env:

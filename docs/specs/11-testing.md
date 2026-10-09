@@ -216,7 +216,8 @@ time-driven and fault-injectable.
   `uv sync --frozen`. CI MUST use only the python-can `virtual` interface: no `vcan`, kernel
   modules or `sudo`.
 * **TEST-35** CI SHOULD run the `mosquitto` tests in a second job against an
-  `eclipse-mosquitto:1.6` service container on port 1883, with `MQTT_HOST` and `MQTT_PORT`
+  `eclipse-mosquitto:1.6` service container (pulled from `public.ecr.aws/docker/library/`,
+  which has no Docker Hub pull limit) on port 1883, with `MQTT_HOST` and `MQTT_PORT`
   pointing at it. Mosquitto 2.x only accepts anonymous remote connections when given a
   configuration file, which a GitHub Actions service container cannot be given, so the 1.6
   image (which allows them by default) is used.
