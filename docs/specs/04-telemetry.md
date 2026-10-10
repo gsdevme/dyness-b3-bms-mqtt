@@ -34,7 +34,7 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
   | Group | Frames | Age used | Stale when |
   |---|---|---|---|
   | Broadcast | `0x16`, `0x21`, `0x22`, `0x23`, `0x24` | Age of that frame | Age > `MODULE_STALE_S`, or the module is not online |
-  | Cell stream | `0x11`–`0x15` | `cell_age_s` (oldest of the five) | `cells_fresh` is false |
+  | Cell stream | `0x11`–`0x15` | Oldest of the five | Any of the five never received, the oldest age > `CELL_STALE_S`, or the module is not online (`cells_fresh` is false) |
   | Energy | `0x17` | Age of `0x17` | Age > `CELL_STALE_S`, or the module is not online |
   | Stack | `0x351`, `0x355`, `0x356`, `0x359` | Age of that frame | Age > `MODULE_STALE_S` |
 
@@ -47,13 +47,18 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
   `03-health-and-recovery.md` is anything other than SILENT. While the health state is
   `STALE`, `RECOVERING` or `DEAD`, the application MUST pass `SILENT` for every module so
   that `online` always equals module availability (HEALTH-30). `cells_fresh` MUST be true
-  exactly when `online` is true and `cell_age_s ≤ CELL_STALE_S`. When `online` is false,
-  every field of the `ModuleSnapshot` other than `module`, `online`, `cells_fresh`,
-  `bcast_age_s` and `cell_age_s` MUST be `None`.
-* **TEL-07** `bcast_age_s` and `cell_age_s` MUST be the module broadcast age and cell age as
-  defined in `03-health-and-recovery.md`, computed at `now`, rounded to 1 dp, and `None`
-  only when no frame of that group has ever been received. They are diagnostics and are
-  never nulled for being stale.
+  exactly when `online` is true, all five of `0x11`–`0x15` have been received since
+  start-up, and the oldest of them is no older than `CELL_STALE_S`; this matches
+  HEALTH-04, where a cell frame never received is aged from the bus open and so keeps the
+  module `CELLS_STALE`. When `online` is false, every field of the `ModuleSnapshot` other
+  than `module`, `online`, `cells_fresh`, `bcast_age_s` and `cell_age_s` MUST be `None`.
+* **TEL-07** `bcast_age_s` and `cell_age_s` MUST be the module broadcast age (newest of its
+  frames) and cell age (oldest of its frames) of `03-health-and-recovery.md` HEALTH-04,
+  computed at `now` and rounded to 1 dp, but counting only frames actually received: each
+  is `None` until a frame of its group has arrived, and while only some of `0x11`–`0x15`
+  have arrived `cell_age_s` is the age of the oldest of those. They are diagnostics and are
+  never nulled for being stale; whether the cell stream is fresh is `cells_fresh` (TEL-06),
+  not `cell_age_s` alone.
 
 ## 3. ModuleSnapshot
 
@@ -102,13 +107,13 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
 
   | Name | Byte | Bit | Class |
   |---|---|---|---|
-  | `CellV_CutH` | 0 | 0 | cut |
-  | `CellV_CutL` | 0 | 1 | cut |
-  | `PackV_CutH` | 0 | 2 | cut |
-  | `PackV_CutL` | 0 | 3 | cut |
-  | `Temp_CutH` | 0 | 4 | cut |
-  | `Temp_CutL` | 0 | 5 | cut |
-  | `Cur_CutH` | 0 | 6 | cut |
+  | `CellV_CutH` | 0 | 0 | protection |
+  | `CellV_CutL` | 0 | 1 | protection |
+  | `PackV_CutH` | 0 | 2 | protection |
+  | `PackV_CutL` | 0 | 3 | protection |
+  | `Temp_CutH` | 0 | 4 | protection |
+  | `Temp_CutL` | 0 | 5 | protection |
+  | `Cur_CutH` | 0 | 6 | protection |
   | `CellV_AlarmH` | 1 | 0 | alarm |
   | `CellV_AlarmL` | 1 | 1 | alarm |
   | `PackV_AlarmH` | 1 | 2 | alarm |
@@ -116,15 +121,15 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
   | `Temp_AlarmH` | 1 | 4 | alarm |
   | `Temp_AlarmL` | 1 | 5 | alarm |
   | `Cur_AlarmH` | 1 | 6 | alarm |
-  | `DisMOS_on` | 2 | 0 | state |
-  | `ChgMOS_on` | 2 | 1 | state |
+  | `DisMOS_on` | 2 | 0 | status |
+  | `ChgMOS_on` | 2 | 1 | status |
   | `Short` | 2 | 2 | fault |
   | `PwrDown` | 2 | 3 | fault |
   | `MOS_TempH` | 2 | 4 | fault |
   | `InternalComErr` | 2 | 5 | fault |
   | `Reverse` | 2 | 6 | fault |
-  | `Balancing` | 2 | 7 | state |
-  | `CellDiff_Cut` | 3 | 4 | cut |
+  | `Balancing` | 2 | 7 | status |
+  | `CellDiff_Cut` | 3 | 4 | protection |
   | `CellDiff_Alarm` | 3 | 5 | alarm |
   | `InvalidCell` | 4 | 0 | fault |
   | `ChgMOS_Err` | 4 | 4 | fault |
@@ -194,10 +199,10 @@ field is defined in `06-mqtt.md`; section 9 maps the two where they differ.
   `online` is true. It is never `None`.
 * **TEL-17** `any_alarm` MUST be true if any module's `flags` has a set bit of class
   `alarm` (TEL-09); `any_protection` MUST be true if any module's `flags` has a set bit of
-  class `cut`. Each is false when at least one module has non-`None` `flags` and none has
-  such a bit set, and `None` when every module's `flags` is `None`. These are raw roll-ups
-  without debounce; the alert roll-ups in `05-alerts.md` additionally count `fault` bits
-  for protection.
+  class `protection`. Each is false when at least one module has non-`None` `flags` and
+  none has such a bit set, and `None` when every module's `flags` is `None`. These are raw
+  roll-ups without debounce; the alert roll-ups in `05-alerts.md` additionally count
+  `fault` bits for protection.
 
 ## 6. Sign convention
 

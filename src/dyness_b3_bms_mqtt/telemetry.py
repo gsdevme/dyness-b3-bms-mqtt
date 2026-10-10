@@ -205,10 +205,20 @@ class TelemetryStore:
     def _module_snapshot(
         self, module: int, received: _Received[ModuleFrame], now: float, status: ModuleStatus
     ) -> ModuleSnapshot:
-        """Build one module's snapshot with the freshness rules of TEL-04 and TEL-06."""
+        """Build one module's snapshot with the freshness rules of TEL-04 and TEL-06.
+
+        The cell stream is fresh only once all five ``CELL_CODES`` have arrived, so a cell
+        frame never received counts as stale; ``cell_age_s`` stays the age of the oldest
+        cell frame received so far (TEL-07).
+        """
         cell_age = _age(received, CELL_CODES, now, oldest=True)
         online = status is not ModuleStatus.SILENT
-        cells_fresh = online and cell_age is not None and cell_age <= self._cell_stale_s
+        cells_fresh = (
+            online
+            and received.keys() >= set(CELL_CODES)
+            and cell_age is not None
+            and cell_age <= self._cell_stale_s
+        )
         limit = self._module_stale_s if online else None
         mos = _fresh(received, 0x16, MosBoardCycles, now, limit)
         pack = _fresh(received, 0x21, PackStatus, now, limit)

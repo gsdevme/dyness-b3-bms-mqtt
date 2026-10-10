@@ -18,6 +18,7 @@ import pytest
 
 from dyness_b3_bms_mqtt import status as status_module
 from dyness_b3_bms_mqtt import telemetry
+from dyness_b3_bms_mqtt.alerts import AlertState, AlertThresholds, evaluate
 from dyness_b3_bms_mqtt.config import Settings
 from dyness_b3_bms_mqtt.protocol import (
     CellExtremes,
@@ -379,6 +380,40 @@ def test_cells_stale_status_keeps_module_online(clock: FakeClock) -> None:
     assert module.cells_mv == (3300,) * 15
     assert module.pack_v == 49.5
     assert snap.stack.modules_online == 3
+
+
+@pytest.mark.req("TEL-04", "TEL-06", "TEL-07", "TEL-12")
+def test_cells_are_stale_until_all_five_cell_frames_arrive(clock: FakeClock) -> None:
+    low = (3100, *(3300,) * 14)
+    store = TelemetryStore(make_settings())
+    for number in (1, 2, 3):
+        ingest_all(store, broadcast_frames(number), clock())
+    ingest_all(store, cell_frames(1, low)[:4], clock())
+    clock.advance(2.0)
+
+    snap = store.snapshot(clock(), all_ok())
+
+    module = snap.modules[0]
+    assert module.online is True
+    assert module.cells_fresh is False
+    assert module.cell_age_s == 2.0
+    assert module.cells_mv == (None,) * 15
+    assert module.temps_c == (None,) * 3
+    assert (snap.stack.lowest_mv, snap.stack.lowest_module, snap.stack.lowest_cell) == (
+        3300,
+        1,
+        4,
+    )
+    alerts = evaluate(
+        snap, AlertState.initial(3), clock(), AlertThresholds.from_settings(make_settings())
+    )
+    assert alerts.module(1)["cell_low"].value == 3300
+
+    store.ingest(cell_frames(1, low)[4], clock())
+    complete = store.snapshot(clock(), all_ok())
+    assert complete.modules[0].cells_fresh is True
+    assert complete.modules[0].cell_age_s == 2.0
+    assert complete.stack.lowest_mv == 3100
 
 
 @pytest.mark.req(
