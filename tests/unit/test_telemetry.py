@@ -698,5 +698,13 @@ def test_ten_thousand_frames_under_one_second() -> None:
         store.snapshot(float(len(frames)), all_ok())
         return time.perf_counter() - started
 
-    elapsed = min(run() for _ in range(3))
-    assert elapsed < 1.0, f"10 000 frames took {elapsed:.3f} s at best of 3"
+    durations: list[float] = []
+    for _ in range(3):
+        durations.append(run())
+        if durations[-1] < 1.0:
+            break
+    assert durations[-1] < 1.0, (
+        "10 000 frames took "
+        + ", ".join(f"{duration:.3f} s" for duration in durations)
+        + " in 3 runs; the bound is 1.0 s"
+    )
