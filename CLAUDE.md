@@ -31,8 +31,7 @@ Key facts that are easy to get wrong:
   sessions on macOS until replugged; keep transmissions minimal.
 
 Other notes:
-* `../dyness-debug` (https://github.com/gsdevme/dyness-debug) is the protocol authority;
-  `docs/specs/01-protocol.md` must agree with its `docs/protocol.md`. Hardware results win
-  over both; update the spec to match.
+* `docs/specs/01-protocol.md` is the protocol authority for this repo. Hardware results win
+  over it; update the spec to match.
 * Python 3.14 managed by `uv`: `uv run pytest`, `make check`. Tests must not need hardware.
 * Don't add Dyness binaries, decompiled source, manuals or parameter files to the repo.

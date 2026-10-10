@@ -4,9 +4,10 @@ The CAN protocol spoken on the Dyness B3 stack bus, as far as this service reads
 it: which frames exist, how each is laid out, how raw values become engineering units, and
 the single frame the service is allowed to transmit.
 
-The authority for every fact here is `../dyness-debug/docs/protocol.md` (confirmed on real
-hardware on 8–9 October 2026). This document restates it as requirements and MUST be kept
-consistent with it (see `00-overview.md` §6). The decoder lives in `protocol.py` and is pure:
+This document is the authority for the protocol facts in this project. Untagged facts were
+confirmed on real hardware on 8–9 October 2026 (see `00-overview.md` §4.3 and §6). Hardware
+results win over this document: when the stack behaves differently, the spec is updated to
+match. The decoder lives in `protocol.py` and is pure:
 no I/O, no clock, no configuration lookups beyond the arguments it is given.
 
 ## 1. Physical and link layer
@@ -146,8 +147,8 @@ sum of the module limits. `0x17` is approximately cycles × 3.6 kWh.
 
 ### 3.2 `0x24` flag bits
 
-Bits are numbered 0 = least significant. Names are exactly those used by `Module.decode` in
-`../dyness-debug/dyness_cells.py`. The category column is for telemetry's aggregates.
+Bits are numbered 0 = least significant. Names are exactly those used by the reference
+decoder used during diagnosis. The category column is for telemetry's aggregates.
 
 | Byte | Bit | Name | Category | Meaning |
 |---|---|---|---|---|
@@ -241,7 +242,7 @@ requirements on the decoder.
 | `0x18F20103` heartbeat at 10 Hz | Confirmed |
 | Stack frames `0x351`…`0x70D` about 1 Hz each | Confirmed |
 | `0x11`–`0x15` and `0x17` are only sent after a poll of that module, once per poll | Confirmed |
-| After a few minutes of polling the cell stream continues at about 1 Hz per module with no further polls (still streaming 15+ minutes and overnight later) | Confirmed. The authority's `docs/findings.md` (overnight listen-only logging, 8–9 Oct) records the all-night stream |
+| After a few minutes of polling the cell stream continues at about 1 Hz per module with no further polls (still streaming 15+ minutes and overnight later) | Confirmed. The all-night stream was observed during overnight listen-only logging on 8–9 October 2026 |
 | How long the cell stream persists with no poll at all, and whether it survives a BMS restart | **UNVERIFIED** |
 | Polling each module at about 1 Hz causes no CAN errors and does not interrupt the inverter frames | Confirmed |
 | Normal traffic exceeds 30 frames/s | Confirmed |
@@ -298,8 +299,9 @@ data = 01 00 00 00 00 00 00 00      DLC 8
 
 ## 7. Worked examples
 
-Real frames from `../dyness-debug/data/2026-10-08/t1-listen-only-sniff.txt` (t1) and
-`t2-poll-60s.txt` (t2), written `id data`. Each MUST be a decoder test vector (PROTO-33).
+Real frames from the 8 October 2026 hardware captures vendored under
+`tests/vectors/captures/`: `t1-listen-only-sniff.txt` (t1) and `t2-poll-60s.txt` (t2),
+written `id data`. Each MUST be a decoder test vector (PROTO-33).
 
 ### 7.1 Module frames
 

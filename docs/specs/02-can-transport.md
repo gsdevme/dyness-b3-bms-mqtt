@@ -70,7 +70,7 @@ Variables referenced here (`CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_R
   vendor-class interface although none is bound, and the `gs_usb` package's attempt to
   detach it fails with "Access denied" unless run as root. The stub MUST NOT be applied on
   any other platform; on Linux a real kernel `gs_usb` driver may be bound and the check
-  matters. (Reference: `open_gs_usb` in `../dyness-debug/dyness_cells.py`.)
+  matters. (The same workaround was used by the reference decoder during diagnosis.)
 * **CAN-06** Any exception raised while opening MUST be mapped per §8 and re-raised as
   `TransportFault(op="open", …)`. If a bus object was partly constructed, its `shutdown()`
   MUST be called before raising.
@@ -129,7 +129,7 @@ The acceptance set is:
 * **CAN-16** With `CAN_INTERFACE=gs_usb` and listen-only, `open()` MUST, for the duration of
   the `can.Bus(...)` call only, wrap `gs_usb.gs_usb.GsUsb.start` so that the flags it
   receives are OR'ed with `GS_CAN_MODE_LISTEN_ONLY | GS_CAN_MODE_HW_TIMESTAMP` (the approach
-  proven in `../dyness-debug/overnight_logger.py`), restoring the original method afterwards
+  proven during overnight listen-only logging on 8–9 October 2026), restoring the original method afterwards
   even if the call raises. After opening it MUST check
   `bus.gs_usb.device_flags & GS_CAN_MODE_LISTEN_ONLY`; if the flag is not set it MUST shut
   the bus down and raise `TransportFault(op="open", kind=LISTEN_ONLY_REFUSED)`.

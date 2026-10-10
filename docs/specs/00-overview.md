@@ -5,9 +5,8 @@ battery-management telemetry of a stack of Dyness B3 modules over CAN and publis
 MQTT broker, with Home Assistant MQTT discovery so every value appears as an entity without
 manual configuration.
 
-It is the production successor to the diagnostic tooling in
-[dyness-debug](https://github.com/gsdevme/dyness-debug) (local checkout: `../dyness-debug`),
-which established the protocol and found one weak cell in each of modules 2 and 3. The
+It is the production successor to a separate diagnostic effort, which established the
+protocol and found one weak cell in each of modules 2 and 3 (§6). The
 service exists so those cells, and the health of the whole stack, can be watched continuously.
 
 ## 1. Scope
@@ -97,7 +96,7 @@ with one of these words is explanation, not a requirement.
 A requirement or table row tagged **UNVERIFIED** is derived from documentation or captures
 but has not been confirmed on the real stack. Implementation MUST follow it as written; the
 first hardware run MUST either confirm it or change the spec. Untagged protocol facts were
-confirmed on real hardware on 8–9 October 2026 (see `../dyness-debug/docs/protocol.md`).
+confirmed on real hardware on 8–9 October 2026 (see `01-protocol.md`).
 
 ### 4.4 Traceability
 
@@ -147,12 +146,16 @@ that is explicitly labelled as using the default values (as in `05-alerts.md` §
 
 ## 6. Source material
 
-* `../dyness-debug/docs/protocol.md` — the protocol as confirmed on hardware. `01-protocol.md`
-  restates it as requirements and MUST be kept consistent with it.
-* `../dyness-debug/dyness_cells.py`, `overnight_logger.py` — reference decoders and the
-  listen-only / reconnect patterns.
-* `../dyness-debug/data/` — real captures used as test vectors.
-* `../dyness-debug/SPEC.md`, `docs/findings.md` — why the weak cells matter.
+The protocol was reverse-engineered and confirmed on the real stack in a separate diagnostic
+effort in October 2026 (the private dyness-debug repository), which also found the weak
+cells M2 #8 and M3 #9. This repository does not depend on it:
+
+* `01-protocol.md` is the protocol authority for this project and carries every protocol
+  fact from that work. Hardware results win over it; when they differ, the spec is updated
+  to match.
+* `tests/vectors/captures/` holds vendored copies of the 8 October 2026 hardware captures
+  (`t1-listen-only-sniff.txt`, `t2-poll-60s.txt`), used as test vectors (`11-testing.md`
+  §4.1).
 
 ## 7. Architecture and source layout
 

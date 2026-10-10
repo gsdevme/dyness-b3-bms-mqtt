@@ -126,7 +126,7 @@ Why some of these are set or left out (all directives exist in systemd 252):
   2. publish `<MQTT_BASE_TOPIC>/status` = `offline` (retained) and the final service state
      (`06-mqtt.md`) without waiting for them, and close the local history (LOG-10);
   3. `bus.shutdown()` on the CAN bus, so the adapter is released cleanly (see the adapter
-     stall quirk in `../dyness-debug/docs/protocol.md`);
+     stall quirk in `03-health-and-recovery.md`);
   4. stop the MQTT publisher (MQTT-10), which publishes the retained `offline` again, waits
      at most 2 s for it and disconnects, then exit with status 0.
 

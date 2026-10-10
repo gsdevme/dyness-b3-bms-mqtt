@@ -1,4 +1,4 @@
-# source: dyness-debug/data/2026-10-08/t2-poll-60s.txt
+# source: hardware-capture/2026-10-08/t2-poll-60s.txt
 # lines: 1-4347
 1791489694.642 TX 18F21177 01 00 00 00 00 00 00 00
 672.294 18F21177 X 01 00 00 00 00 00 00 00

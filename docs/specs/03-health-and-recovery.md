@@ -9,7 +9,7 @@ Every timeout and threshold is an environment variable owned by `08-configuratio
 document uses the variable names only.
 
 Background: the SH-C31A adapter has been seen to stop receiving after transmitting sessions
-until it is replugged (`../dyness-debug/docs/protocol.md`, "Observed on real hardware"). Bus
+until it is replugged (observed on real hardware in October 2026). Bus
 silence is therefore treated as an adapter fault that can need a link bounce or a USB reset.
 A silent module is not treated as an adapter fault.
 

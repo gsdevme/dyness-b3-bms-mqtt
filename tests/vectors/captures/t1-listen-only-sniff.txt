@@ -1,4 +1,4 @@
-# source: dyness-debug/data/2026-10-08/t1-listen-only-sniff.txt
+# source: hardware-capture/2026-10-08/t1-listen-only-sniff.txt
 # lines: 1-2881
 417.129 18F21124 X 00 00 03 00 00 00 00 00
 417.129 0000035E S 44 59 4e 45 53 53 2d 4c

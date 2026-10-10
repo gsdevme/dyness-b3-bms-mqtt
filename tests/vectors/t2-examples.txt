@@ -1,4 +1,4 @@
-# source: dyness-debug/data/2026-10-08/t2-poll-60s.txt
+# source: hardware-capture/2026-10-08/t2-poll-60s.txt
 # lines: 1, 2, 3, 9, 16, 23, 24, 27, 29, 31, 35, 37, 42, 46, 47, 50, 51, 57, 58, 64, 65, 71, 78, 86
 # The first three polls (TX) with their echoes and the first occurrence of every
 # polled frame (0x11-0x15, 0x17) of modules 1-3 in lines 1-86 of the polling capture.
