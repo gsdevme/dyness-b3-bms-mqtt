@@ -180,8 +180,8 @@ installer MUST support exactly as written:
 
 ```sh
 sudo apt-get install -y curl make
-curl -L https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags/v0.3.0.tar.gz | tar xz  # x-release-please-version
-cd dyness-b3-bms-mqtt-0.3.0  # x-release-please-version
+curl -L https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags/v0.3.1.tar.gz | tar xz  # x-release-please-version
+cd dyness-b3-bms-mqtt-0.3.1  # x-release-please-version
 sudo make install
 sudo nano /etc/default/dyness-b3-bms-mqtt   # set MQTT_HOST etc.
 sudo make check-config
