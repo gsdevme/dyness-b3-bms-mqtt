@@ -7,7 +7,9 @@ markers (module and class marks included) and enforces the rules of TEST-06:
 1. every ``must`` requirement is cited by a test that is not marked ``hardware`` or
    ``mosquitto``. Enabled by ``--req-strict``, which ``pyproject.toml`` puts in ``addopts``
    so it is on by default, and only a warning when the run is narrowed (test paths, ``-k``,
-   ``-m``, ``--deselect``, ``--lf``, stepwise, any deselection or a collection error);
+   ``-m``, ``--deselect``, ``--lf``, stepwise, a collection error, or any deselection of a
+   test that could cover a requirement; deselecting ``mosquitto`` tests when ``--mosquitto``
+   is not given therefore leaves the default run whole);
 2. no ``req`` marker names an undefined or withdrawn identifier;
 3. no identifier is defined more than once;
 4. every ``req`` argument matches ``ID_PATTERN``.
@@ -279,8 +281,8 @@ class ReqTrace:
             self.collection_failed = True
 
     def pytest_deselected(self, items: list[pytest.Item]) -> None:
-        """Note that the run was narrowed by deselection."""
-        if items:
+        """Note that the run was narrowed by deselecting a test that could cover (TEST-07)."""
+        if any(_counts_as_coverage(item) for item in items):
             self.deselected = True
 
     def pytest_collection_finish(self, session: pytest.Session) -> None:

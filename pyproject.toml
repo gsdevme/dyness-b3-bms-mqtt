@@ -35,7 +35,7 @@ timeout = 120
 markers = [
     "req(*ids): the test verifies the named requirement identifiers (PREFIX-NN)",
     "integration: uses real wall-clock time; may sleep; 10 s per-test timeout",
-    "mosquitto: needs a real MQTT broker; skipped unless MQTT_HOST:MQTT_PORT accepts a TCP connection within 1 s",
+    "mosquitto: needs a real MQTT broker; deselected unless --mosquitto is given, then fails if MQTT_HOST:MQTT_PORT is unreachable within 10 s",
     "hardware: needs the real stack on CAN_CHANNEL; skipped unless --hardware is given",
 ]
 

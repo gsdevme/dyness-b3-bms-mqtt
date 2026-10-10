@@ -1,9 +1,10 @@
 """Static checks of the suite's shape: which tests need what, verified from the source.
 
 Tests that need a broker live only in ``tests/integration/test_mosquitto.py`` behind the
-``mosquitto`` and ``integration`` markers, so the default run collects them but skips them
-unless a broker answers (TEST-02, TEST-37). Everywhere else a ``PahoPublisher`` is built
-only on an injected client factory and no real paho client is constructed.
+``mosquitto`` and ``integration`` markers, so the default run deselects them and only
+``--mosquitto`` runs them, against a broker that must answer (TEST-02, TEST-37).
+Everywhere else a ``PahoPublisher`` is built only on an injected client factory and no real
+paho client is constructed.
 
 Tests that need the real stack live only in ``tests/hardware/`` behind the ``hardware``
 marker. They run listen-only unless ``--hardware-poll`` is given, and the only transmission

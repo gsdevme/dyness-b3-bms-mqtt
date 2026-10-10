@@ -1,41 +1,57 @@
 """Tests of the marker plugin (``tests/plugins/markers.py``) and the fake clock.
 
 The plugin behaviour is checked in a throwaway pytest run in a subprocess, so the outer
-test's own ``time.sleep`` guard cannot leak into the inner run.
+test's own ``time.sleep`` guard cannot leak into the inner run, and so the ``fast`` inner
+runs may shrink the plugin's timeout cap and broker wait without touching this process.
 """
 
 import socket
-import tomllib
-from pathlib import Path
+import threading
+import time
 
 import pytest
 
 from tests.fakes.clock import FakeClock
 from tests.plugins.markers import (
+    BROKER_WAIT_S,
     INTEGRATION_TIMEOUT_S,
-    REQUIRE_BROKER_ENV,
     broker_address,
     broker_reachable,
 )
+from tests.support.inner_run import configure_inner_run
 
-ROOT = Path(__file__).resolve().parents[2]
+FAST_CAP_S = 0.5
+FAST_WAIT_S = 0.5
+FAST = f"""
+def pytest_configure(config):
+    markers = config.pluginmanager.get_plugin("tests.plugins.markers")
+    markers.INTEGRATION_TIMEOUT_S = {FAST_CAP_S}
+    markers.BROKER_WAIT_S = {FAST_WAIT_S}
+"""
+
+MOSQUITTO_TESTS = """
+import pytest
+
+@pytest.mark.mosquitto
+def test_needs_broker():
+    pass
+
+def test_unrelated():
+    pass
+"""
 
 
 @pytest.fixture
 def harness(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> pytest.Pytester:
     """Return a pytester directory configured like the project: same markers, strict."""
-    with (ROOT / "pyproject.toml").open("rb") as handle:
-        ini = tomllib.load(handle)["tool"]["pytest"]["ini_options"]
-    markers: list[str] = ini["markers"]
-    monkeypatch.setenv("PYTHONPATH", str(ROOT))
-    monkeypatch.delenv(REQUIRE_BROKER_ENV, raising=False)
-    pytester.makeini(
-        "[pytest]\n"
-        "addopts = --strict-markers --strict-config -ra\n"
-        f"timeout = {ini['timeout']}\n"
-        "markers =\n" + "".join(f"    {marker}\n" for marker in markers)
-    )
-    pytester.makeconftest('pytest_plugins = ["tests.plugins.markers"]\n')
+    configure_inner_run(pytester, monkeypatch, ["tests.plugins.markers"])
+    return pytester
+
+
+@pytest.fixture
+def fast(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> pytest.Pytester:
+    """Return a project-like pytester directory whose cap and broker wait are shrunk."""
+    configure_inner_run(pytester, monkeypatch, ["tests.plugins.markers"], conftest=FAST)
     return pytester
 
 
@@ -77,49 +93,61 @@ def test_sleep_raises_outside_integration(harness: pytest.Pytester) -> None:
 
 
 @pytest.mark.req("TEST-11", "TEST-02")
-def test_integration_may_sleep_and_gets_timeout(harness: pytest.Pytester) -> None:
+def test_integration_may_sleep_and_gets_timeout(fast: pytest.Pytester) -> None:
     assert INTEGRATION_TIMEOUT_S == 10.0
-    harness.makepyfile(
-        """
+    fast.makepyfile(
+        f"""
         import time
 
         import pytest
-        import pytest_timeout
-
-        def effective(request):
-            return pytest_timeout._get_item_settings(request.node).timeout
 
         @pytest.mark.integration
-        def test_sleeps(request):
-            time.sleep(0.01)
-            assert request.node.get_closest_marker("timeout").args == (10.0,)
-            assert effective(request) == 10.0
+        def test_sleeps_within_the_cap(request):
+            time.sleep(0.05)
+            assert request.node.get_closest_marker("timeout").args == ({FAST_CAP_S},)
+
+        @pytest.mark.integration
+        def test_sleeps_past_the_cap():
+            time.sleep(3)
 
         @pytest.mark.integration
         @pytest.mark.timeout(60)
-        def test_cannot_raise_the_cap(request):
-            assert request.node.get_closest_marker("timeout").args == (10.0,)
-            assert effective(request) == 10.0
+        def test_cannot_raise_the_cap():
+            time.sleep(3)
 
         @pytest.mark.integration
         @pytest.mark.timeout(0)
-        def test_cannot_disable_the_cap(request):
-            assert request.node.get_closest_marker("timeout").args == (10.0,)
-            assert effective(request) == 10.0
+        def test_cannot_disable_the_cap():
+            time.sleep(3)
 
         @pytest.mark.integration
-        @pytest.mark.timeout(2)
-        def test_keeps_a_stricter_timeout(request):
-            assert request.node.get_closest_marker("timeout").args == (2,)
-            assert effective(request) == 2
+        @pytest.mark.timeout(0.1)
+        def test_keeps_a_stricter_timeout():
+            time.sleep({FAST_CAP_S} * 0.6)
 
         def test_unmarked_gets_the_suite_ceiling(request):
             assert request.node.get_closest_marker("timeout") is None
-            assert effective(request) == 120
+            assert float(request.config.getini("timeout")) == 120
         """
     )
-    result = harness.runpytest_subprocess()
-    result.assert_outcomes(passed=5)
+    started = time.monotonic()
+    result = fast.runpytest_subprocess()
+    assert time.monotonic() - started < 10
+    result.assert_outcomes(passed=2, failed=4)
+    cap = f"E*Failed: Timeout (>{FAST_CAP_S}s) from pytest-timeout."
+    result.stdout.fnmatch_lines(
+        [
+            "*def test_sleeps_past_the_cap*",
+            cap,
+            "*def test_cannot_raise_the_cap*",
+            cap,
+            "*def test_cannot_disable_the_cap*",
+            cap,
+            "*def test_keeps_a_stricter_timeout*",
+            "E*Failed: Timeout (>0.1s) from pytest-timeout.",
+        ]
+    )
+    result.stdout.no_fnmatch_line("*PytestAssertRewriteWarning*")
 
 
 @pytest.mark.req("TEST-01", "TEST-02", "TEST-03")
@@ -141,81 +169,70 @@ def test_hardware_skipped_without_flag(harness: pytest.Pytester) -> None:
     harness.runpytest_subprocess("--hardware", "--hardware-poll").assert_outcomes(passed=1)
 
 
-@pytest.mark.req("TEST-01", "TEST-02", "TEST-03")
-def test_mosquitto_skipped_when_broker_unreachable(
-    harness: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    assert broker_address({}) == ("localhost", 1883)
-    assert broker_address({"MQTT_HOST": "", "MQTT_PORT": ""}) == ("localhost", 1883)
-    assert broker_address({"MQTT_HOST": "broker.lan", "MQTT_PORT": "1884"}) == ("broker.lan", 1884)
-    harness.makepyfile(
-        """
-        import pytest
+@pytest.mark.req("TEST-01", "TEST-02")
+def test_mosquitto_deselected_without_flag(harness: pytest.Pytester) -> None:
+    harness.makepyfile(MOSQUITTO_TESTS)
+    result = harness.runpytest_subprocess()
+    result.assert_outcomes(passed=1, deselected=1)
+    result.stdout.no_fnmatch_line("*SKIPPED*")
+    result.stdout.no_fnmatch_line("*broker*")
 
-        @pytest.mark.mosquitto
-        def test_needs_broker():
-            pass
-        """
-    )
+
+@pytest.mark.req("TEST-01", "TEST-02", "TEST-03", "TEST-35")
+def test_mosquitto_fails_when_flagged_and_unreachable(
+    fast: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert BROKER_WAIT_S == 10.0
+    fast.makepyfile(MOSQUITTO_TESTS)
     with socket.socket() as closed:
         closed.bind(("127.0.0.1", 0))
         port = closed.getsockname()[1]
         monkeypatch.setenv("MQTT_HOST", "127.0.0.1")
         monkeypatch.setenv("MQTT_PORT", str(port))
         assert not broker_reachable("127.0.0.1", port)
-        result = harness.runpytest_subprocess()
-    result.assert_outcomes(skipped=1)
-    result.stdout.fnmatch_lines([f"SKIPPED*broker unreachable at 127.0.0.1:{port}*"])
+        result = fast.runpytest_subprocess("--mosquitto")
+    result.assert_outcomes(failed=1, passed=1)
+    assert result.ret == pytest.ExitCode.TESTS_FAILED
+    result.stdout.fnmatch_lines(
+        [
+            f"broker unreachable at 127.0.0.1:{port} within {FAST_WAIT_S:g} s (--mosquitto)",
+            "FAILED*::test_needs_broker*",
+        ]
+    )
+    result.stdout.no_fnmatch_line("*SKIPPED*")
 
+
+@pytest.mark.req("TEST-01", "TEST-02", "TEST-35")
+def test_mosquitto_runs_when_flagged_and_reachable(
+    fast: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert broker_address({}) == ("localhost", 1883)
+    assert broker_address({"MQTT_HOST": "", "MQTT_PORT": ""}) == ("localhost", 1883)
+    assert broker_address({"MQTT_HOST": "broker.lan", "MQTT_PORT": "1884"}) == ("broker.lan", 1884)
+    fast.makepyfile(MOSQUITTO_TESTS)
     with socket.socket() as listening:
         listening.bind(("127.0.0.1", 0))
         listening.listen()
         port = listening.getsockname()[1]
-        monkeypatch.setenv("MQTT_PORT", str(port))
-        assert broker_reachable("127.0.0.1", port)
-        harness.runpytest_subprocess().assert_outcomes(passed=1)
-
-
-@pytest.mark.req("TEST-01", "TEST-02", "TEST-03", "TEST-35")
-def test_mosquitto_required_fails_when_unreachable(
-    harness: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    assert REQUIRE_BROKER_ENV == "MQTT_REQUIRE_BROKER"
-    harness.makepyfile(
-        """
-        import pytest
-
-        @pytest.mark.mosquitto
-        def test_needs_broker():
-            pass
-
-        def test_unrelated():
-            pass
-        """
-    )
-    with socket.socket() as closed:
-        closed.bind(("127.0.0.1", 0))
-        port = closed.getsockname()[1]
         monkeypatch.setenv("MQTT_HOST", "127.0.0.1")
         monkeypatch.setenv("MQTT_PORT", str(port))
-        monkeypatch.setenv(REQUIRE_BROKER_ENV, "1")
-        required = harness.runpytest_subprocess()
-        monkeypatch.setenv(REQUIRE_BROKER_ENV, "0")
-        optional = harness.runpytest_subprocess()
-    required.assert_outcomes(failed=1, passed=1)
-    required.stdout.fnmatch_lines(
-        [
-            f"broker unreachable at 127.0.0.1:{port} and MQTT_REQUIRE_BROKER=1",
-            "FAILED*::test_needs_broker*",
-        ]
-    )
-    assert required.ret == pytest.ExitCode.TESTS_FAILED
-    optional.assert_outcomes(skipped=1, passed=1)
-    optional.stdout.fnmatch_lines([f"SKIPPED*broker unreachable at 127.0.0.1:{port}*"])
+        assert broker_reachable("127.0.0.1", port)
+        fast.runpytest_subprocess("--mosquitto").assert_outcomes(passed=2)
 
-    with socket.socket() as listening:
-        listening.bind(("127.0.0.1", 0))
-        listening.listen()
-        monkeypatch.setenv("MQTT_PORT", str(listening.getsockname()[1]))
-        monkeypatch.setenv(REQUIRE_BROKER_ENV, "1")
-        harness.runpytest_subprocess().assert_outcomes(passed=2)
+
+@pytest.mark.integration
+@pytest.mark.req("TEST-02")
+def test_broker_probe_waits_for_a_late_listener() -> None:
+    with socket.socket() as late:
+        late.bind(("127.0.0.1", 0))
+        port = late.getsockname()[1]
+        assert not broker_reachable("127.0.0.1", port)
+        timer = threading.Timer(0.5, late.listen)
+        timer.start()
+        try:
+            started = time.monotonic()
+            assert broker_reachable("127.0.0.1", port, wait_s=5.0)
+            assert 0.4 < time.monotonic() - started < 5.0
+        finally:
+            timer.cancel()
+            timer.join()

@@ -9,7 +9,7 @@ traceability plugin each have tests that carry `@pytest.mark.req("TEST-NN")`.
 
 * **TEST-01** The suite MUST use pytest and MUST run with `uv run pytest` from a fresh clone
   with no CAN hardware, no `can0`, no MQTT broker, no network access and no root. Tests that
-  need any of those MUST be behind the markers in TEST-02 and skipped by default.
+  need any of those MUST be behind the markers in TEST-02 and not run by default.
 * **TEST-02** The following markers MUST be registered in `pyproject.toml` and pytest MUST
   run with `--strict-markers`:
 
@@ -17,11 +17,13 @@ traceability plugin each have tests that carry `@pytest.mark.req("TEST-NN")`.
   |---|---|---|
   | `req("ID", ...)` | Test verifies the named requirement(s) | Always runs |
   | `integration` | Uses real wall-clock time (see TEST-11) | Always runs |
-  | `mosquitto` | Needs a real MQTT broker | Skipped unless a TCP connect to `MQTT_HOST`:`MQTT_PORT` succeeds within 1 s |
+  | `mosquitto` | Needs a real MQTT broker | Deselected unless pytest is given `--mosquitto`; with it the broker at `MQTT_HOST`:`MQTT_PORT` MUST accept a TCP connection within a 10 s wait or every `mosquitto` test fails |
   | `hardware` | Needs the real stack on the configured `CAN_CHANNEL` | Skipped unless pytest is given `--hardware` |
 
-* **TEST-03** A test skipped by the `mosquitto` or `hardware` rule MUST report the reason
-  (broker unreachable at host:port, or `--hardware` not given).
+* **TEST-03** A test skipped by the `hardware` rule MUST report the reason (`--hardware` not
+  given), and a `mosquitto` test failed because the broker is unreachable MUST report the
+  host, port and wait. `mosquitto` tests are never skipped: a run either deselects them or
+  requires the broker, so no run can pass with them silently not run.
 * **TEST-04** The default suite SHOULD complete in under 60 s on a CI runner and under 5 min
   on a Pi Zero 2.
 
@@ -64,8 +66,10 @@ This is the mechanism behind `00-overview.md` §4.4.
   covering a `must` requirement, so that the default run alone satisfies §4.4. A test counts
   when it is collected, whether it passes or fails (failures already fail the session).
 * **TEST-08** Rule 1 of TEST-06 MUST apply only when the whole default suite is collected.
-  When the run is narrowed (test paths, `-k`, `-m`, `--deselect`, `--lf`), the plugin MUST
-  downgrade rule 1 to a warning; rules 2–4 MUST still fail.
+  When the run is narrowed (test paths, `-k`, `-m`, `--deselect`, `--lf`, or any other
+  deselection of a test that could cover a requirement), the plugin MUST downgrade rule 1 to
+  a warning; rules 2–4 MUST still fail. Deselecting the `mosquitto` tests when
+  `--mosquitto` is not given does not narrow the run, because they never cover (TEST-07).
 * **TEST-09** At the end of every session the plugin MUST print a one-line summary (counts of
   must / covered / manual / should). With `--req-report` it MUST print the full matrix:
   identifier, status, and the node IDs of covering tests, followed by the list of `manual`
@@ -80,6 +84,8 @@ This is the mechanism behind `00-overview.md` §4.4.
   `FakeClock` fixture provides `now()` and `advance(seconds)`. An autouse fixture MUST make
   `time.sleep` raise in any test not marked `integration`. Tests marked `integration` MAY use
   short real time but MUST each finish within 10 s wall-clock, enforced by a per-test timeout.
+  Every other test MUST be stopped by a suite-wide pytest-timeout ceiling of 120 s
+  (`timeout` in `pyproject.toml`), so a hung test fails instead of stalling the run.
 * **TEST-12** Any randomness in production code (the discovery republish jitter in
   `07-home-assistant.md`) MUST come from an injectable source so tests can fix it.
 * **TEST-13** Tests MUST be independent of order and of each other: each simulated bus uses a
@@ -218,9 +224,11 @@ time-driven and fault-injectable.
 * **TEST-35** CI SHOULD run the `mosquitto` tests in a second job against an
   `eclipse-mosquitto:1.6` service container (pulled from `public.ecr.aws/docker/library/`,
   which has no Docker Hub pull limit) on port 1883, with `MQTT_HOST` and `MQTT_PORT`
-  pointing at it. Mosquitto 2.x only accepts anonymous remote connections when given a
-  configuration file, which a GitHub Actions service container cannot be given, so the 1.6
-  image (which allows them by default) is used.
+  pointing at it, running `uv run --frozen pytest --mosquitto -m mosquitto`. Mosquitto 2.x
+  only accepts anonymous remote connections when given a configuration file, which a GitHub
+  Actions service container cannot be given, so the 1.6 image (which allows them by default)
+  is used. The repository's `docker-compose.yml` SHOULD run the same image on the same port,
+  so the same command works locally after `docker compose up -d`.
 * **TEST-36** Line coverage of the pure modules (`protocol`, `telemetry`, `alerts`, `health`,
   `discovery`, `config`) SHOULD be at least 90 %.
 

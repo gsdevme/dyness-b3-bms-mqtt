@@ -26,7 +26,7 @@ jobs:
       - run: uv sync --frozen
       - run: make check
 
-  # Tests marked `mosquitto` against a real broker. The 1.6 image is used because
+  # Tests marked `mosquitto` against a real broker (TEST-35). The 1.6 image is used because
   # Mosquitto 2.x only accepts anonymous remote clients with a configuration file, which
   # a service container cannot be given; 1.6 accepts them by default. The image comes from
   # the AWS Public ECR mirror of Docker Hub's official library, because unauthenticated
@@ -43,13 +43,15 @@ jobs:
       # port is published on the runner's localhost.
       MQTT_HOST: localhost
       MQTT_PORT: "1883"
-      # Makes tests/plugins/markers.py fail the mosquitto tests, instead of skipping them,
-      # when the broker is unreachable, so this job cannot pass green with nothing run.
-      MQTT_REQUIRE_BROKER: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.14"
       - run: uv sync --frozen
-      - run: uv run --frozen pytest -m mosquitto
+      # Without --mosquitto the mosquitto tests are deselected, as in `make check`. With it
+      # the broker is required: the plugin waits up to BROKER_WAIT_S (10 s) for it, since the
+      # service container has no healthcheck and may still be starting, then fails every
+      # mosquitto test rather than skipping, so this job cannot pass green with nothing run.
+      # -m mosquitto leaves out the rest of the suite, which the check job already runs.
+      - run: uv run --frozen pytest --mosquitto -m mosquitto

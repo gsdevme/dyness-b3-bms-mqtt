@@ -106,6 +106,15 @@ uv run pytest   # no hardware or broker needed
 make check      # ruff, mypy --strict and the tests
 ```
 
+The tests marked `mosquitto` run only with `--mosquitto`, against a real broker that must be
+reachable at `MQTT_HOST`:`MQTT_PORT` (default `localhost:1883`). `docker-compose.yml` starts
+the same broker CI uses:
+
+```sh
+docker compose up -d
+uv run pytest --mosquitto -m mosquitto
+```
+
 Tests run against a simulated battery stack on python-can's `virtual` bus.
 
 ## Spec-driven workflow
