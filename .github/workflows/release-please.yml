@@ -1,7 +1,8 @@
 # Opens and maintains the release PR from Conventional Commits on main; merging that PR
-# bumps the version in pyproject.toml, updates CHANGELOG.md and tags vX.Y.Z.
-# The "extra-files" entry in release-please-config.json also bumps this package's own
-# version in uv.lock, so the committed lock stays current after a release (INST-11).
+# bumps __version__ in src/dyness_b3_bms_mqtt/__init__.py, updates CHANGELOG.md and tags
+# vX.Y.Z. The "python" release type finds that file from the package name on its own and
+# skips pyproject.toml, whose version is dynamic. uv.lock records no version for this
+# package, so a release leaves nothing in the lock to bump (INST-11, INST-17).
 # Its two "generic" entries rewrite every line marked `x-release-please-version` in
 # README.md and docs/specs/10-installation.md, so the quick start always downloads the
 # latest release's source archive (INST-18).
@@ -12,9 +13,9 @@
 #
 # .release-please-manifest.json holds the last *released* version, and release-please
 # treats whatever it says as already released. Nothing has been tagged yet, so it starts
-# at 0.0.0 while pyproject.toml says 0.1.0: the first release PR then proposes 0.1.0
+# at 0.0.0 while __version__ says 0.1.0: the first release PR then proposes 0.1.0
 # (a feat bumps the minor version before 1.0). Starting the manifest at 0.1.0 would make
-# that first release 0.2.0. Each release PR moves the manifest and pyproject.toml together.
+# that first release 0.2.0. Each release PR moves the manifest and __version__ together.
 name: release-please
 
 on:

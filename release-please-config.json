@@ -11,11 +11,6 @@
       "pull-request-title-pattern": "build${scope}: release${component} ${version}",
       "extra-files": [
         {
-          "type": "toml",
-          "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name=='dyness-b3-bms-mqtt')].version"
-        },
-        {
           "type": "generic",
           "path": "README.md"
         },

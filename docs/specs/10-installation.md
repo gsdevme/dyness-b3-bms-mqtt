@@ -130,12 +130,16 @@ Repository sources: `packaging/dyness-b3-bms-mqtt.service`, `packaging/can-up`,
   `sd_notify` (SVC-05). Development tools are in the `dev` dependency group, owned by
   `11-testing.md`.
 * **INST-14** `pyproject.toml` MUST declare the console script `dyness-b3-bms-mqtt`, pointing
-  at the application entry point, and use the `uv_build` build backend.
-* **INST-17** The version MUST be single-sourced from `version` in `pyproject.toml`: the
-  package reads its `__version__` from the installed distribution metadata and contains no
-  version literal. release-please MUST bump it (`release-please-config.json` and
-  `.release-please-manifest.json`), and update the root package's version in `uv.lock`
-  through its `extra-files` TOML updater so the lock file stays current (INST-11).
+  at the application entry point, and use the `hatchling` build backend, whose wheel
+  packages `src/dyness_b3_bms_mqtt` including `py.typed`.
+* **INST-17** The version MUST be single-sourced from the one `__version__ = "X.Y.Z"` line
+  in `src/dyness_b3_bms_mqtt/__init__.py`. `pyproject.toml` MUST declare the version
+  dynamic (`dynamic = ["version"]`, no `version` key) and point hatchling at that file
+  (`[tool.hatch.version]`). release-please MUST bump that line (`release-please-config.json`
+  and `.release-please-manifest.json`; the `python` release type updates
+  `src/<package>/__init__.py` itself and skips a dynamic `pyproject.toml`). `uv.lock` MUST
+  record no version for the root package, so a release leaves nothing in it to go stale
+  (INST-11).
 
 ## 6. README promises
 

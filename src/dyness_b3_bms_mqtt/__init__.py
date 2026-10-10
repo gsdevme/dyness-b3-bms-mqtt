@@ -1,10 +1,12 @@
 """Dyness B3 BMS to MQTT bridge.
 
 Reads a stack of Dyness B3 battery modules over CAN and publishes their telemetry to MQTT
-with Home Assistant discovery. The package version is read from the installed distribution
-metadata, so ``pyproject.toml`` stays the only place it is written.
+with Home Assistant discovery.
+
+``__version__`` is the only place the version is written. ``pyproject.toml`` declares the
+version dynamic and hatchling reads it from this file at build time, and release-please's
+python strategy rewrites the line on each release. Its pattern is ``__version__ = "X.Y.Z"``,
+so the line carries no type annotation.
 """
 
-from importlib.metadata import version
-
-__version__: str = version("dyness-b3-bms-mqtt")
+__version__ = "0.1.0"

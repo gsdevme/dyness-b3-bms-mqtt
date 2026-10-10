@@ -21,6 +21,14 @@ def _pyproject() -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _source_version() -> str:
+    """Return the version from the one ``__version__`` line in the package's ``__init__.py``."""
+    source = (ROOT / "src" / "dyness_b3_bms_mqtt" / "__init__.py").read_text()
+    found = re.findall(r'^__version__ = "(\d+\.\d+\.\d+)"$', source, re.MULTILINE)
+    assert len(found) == 1, found
+    return str(found[0])
+
+
 def _requirement_name(spec: str) -> str:
     match = re.match(r"[A-Za-z0-9._-]+", spec)
     assert match is not None, spec
@@ -56,27 +64,47 @@ def test_console_script_and_build_backend() -> None:
     assert data["project"]["scripts"] == {
         "dyness-b3-bms-mqtt": "dyness_b3_bms_mqtt.app:main",
     }
-    assert data["build-system"]["build-backend"] == "uv_build"
-    assert [_requirement_name(spec) for spec in data["build-system"]["requires"]] == ["uv-build"]
+    assert data["build-system"]["build-backend"] == "hatchling.build"
+    assert [_requirement_name(spec) for spec in data["build-system"]["requires"]] == ["hatchling"]
+    hatch = data["tool"]["hatch"]
+    assert hatch["build"]["targets"]["wheel"]["packages"] == ["src/dyness_b3_bms_mqtt"]
+    assert (ROOT / "src" / "dyness_b3_bms_mqtt" / "py.typed").is_file()
 
 
 @pytest.mark.req("INST-17")
 def test_version_is_single_sourced() -> None:
-    source = (ROOT / "src" / "dyness_b3_bms_mqtt" / "__init__.py").read_text()
-    assert not re.search(r"\d+\.\d+\.\d+", source)
-    assert 'version("dyness-b3-bms-mqtt")' in source
-    assert dyness_b3_bms_mqtt.__version__ == _pyproject()["project"]["version"]
+    """``__init__.py`` holds the only version literal; nothing else records one.
+
+    ``pyproject.toml`` declares the version dynamic and points hatchling at that file, and
+    ``uv.lock`` records no version for the root package, so a release has nothing to drift.
+    """
+    project = _pyproject()["project"]
+    assert "version" not in project
+    assert project["dynamic"] == ["version"]
+    assert _pyproject()["tool"]["hatch"]["version"] == {
+        "path": "src/dyness_b3_bms_mqtt/__init__.py"
+    }
+    assert dyness_b3_bms_mqtt.__version__ == _source_version()
+
+    with (ROOT / "uv.lock").open("rb") as handle:
+        packages = tomllib.load(handle)["package"]
+    root = [package for package in packages if package["name"] == "dyness-b3-bms-mqtt"]
+    assert len(root) == 1
+    assert root[0]["source"] == {"editable": "."}
+    assert "version" not in root[0]
 
 
 @pytest.mark.req("INST-17")
 def test_release_please_config() -> None:
     """Pin the release-please config, manifest and workflow.
 
-    The manifest records the last released version. Until the first release it is
-    ``0.0.0`` while ``pyproject.toml`` says ``0.1.0``: release-please treats a manifest
-    version as already released, so ``0.1.0`` there would make the first ``feat`` release
-    ``0.2.0``. From ``0.0.0`` the first release PR proposes ``0.1.0``, and from then on
-    each release PR moves the manifest and ``pyproject.toml`` together.
+    The ``python`` release type bumps ``src/dyness_b3_bms_mqtt/__init__.py`` on its own and
+    skips the dynamic ``pyproject.toml``, so no extra-file is needed for the version. The
+    manifest records the last released version. Until the first release it is ``0.0.0``
+    while ``__version__`` says ``0.1.0``: release-please treats a manifest version as
+    already released, so ``0.1.0`` there would make the first ``feat`` release ``0.2.0``.
+    From ``0.0.0`` the first release PR proposes ``0.1.0``, and from then on each release
+    PR moves the manifest and ``__version__`` together.
     """
     config = json.loads((ROOT / "release-please-config.json").read_text())
     assert config == {
@@ -91,11 +119,6 @@ def test_release_please_config() -> None:
                 "prerelease": True,
                 "pull-request-title-pattern": "build${scope}: release${component} ${version}",
                 "extra-files": [
-                    {
-                        "type": "toml",
-                        "path": "uv.lock",
-                        "jsonpath": "$.package[?(@.name=='dyness-b3-bms-mqtt')].version",
-                    },
                     {"type": "generic", "path": "README.md"},
                     {"type": "generic", "path": "docs/specs/10-installation.md"},
                 ],
@@ -103,7 +126,7 @@ def test_release_please_config() -> None:
         }
     }
     manifest = json.loads((ROOT / ".release-please-manifest.json").read_text())
-    version = _pyproject()["project"]["version"]
+    version = _source_version()
     assert manifest in ({".": "0.0.0"}, {".": version})
     if manifest == {".": "0.0.0"}:
         assert version == "0.1.0"
@@ -126,7 +149,7 @@ def test_quick_start_version_is_bumped_by_release_please() -> None:
     """The quick start names the current release, and release-please keeps it that way.
 
     Each file carries exactly two annotated lines, the download and the ``cd`` into the
-    unpacked archive, and every version on them is the one in ``pyproject.toml``. The
+    unpacked archive, and every version on them is ``__version__``. The
     download URL names the tag ``vX.Y.Z``, so release-please must tag without the package
     name, and GitHub unpacks that tag's archive into ``dyness-b3-bms-mqtt-X.Y.Z``.
     """
@@ -137,7 +160,7 @@ def test_quick_start_version_is_bumped_by_release_please() -> None:
     generic = {entry["path"] for entry in package["extra-files"] if entry["type"] == "generic"}
     assert generic == {"README.md", "docs/specs/10-installation.md"}
 
-    version = _pyproject()["project"]["version"]
+    version = _source_version()
     for path in sorted(generic):
         lines = [
             line
