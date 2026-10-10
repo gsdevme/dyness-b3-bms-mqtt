@@ -129,6 +129,10 @@ uv run pytest --mosquitto -m mosquitto
 
 Tests run against a simulated battery stack on python-can's `virtual` bus.
 
+During hardware acceptance, the `verify-mqtt` Claude Code skill
+([`.claude/skills/verify-mqtt/`](.claude/skills/verify-mqtt/SKILL.md)) checks a running
+deployment's MQTT output against the spec.
+
 ## Spec-driven workflow
 
 * [`docs/specs/`](docs/specs/) holds the living specification: what the service must do now,
