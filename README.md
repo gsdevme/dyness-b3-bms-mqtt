@@ -9,9 +9,9 @@ It is the always-on follow-up to [dyness-debug](https://github.com/gsdevme/dynes
 which worked out the protocol and found one weak cell in each of modules 2 and 3 (M2 #8,
 M3 #9). This service keeps an eye on those cells and on the stack as a whole.
 
-**Status (9 Oct 2026):** implemented, awaiting hardware acceptance. The behaviour is
-specified in `docs/specs/`; the acceptance run on the real stack is described in
-[`docs/acceptance/README.md`](docs/acceptance/README.md).
+**Status (10 Oct 2026):** v0.1.1 is released as a prerelease; hardware acceptance is still
+pending. The behaviour is specified in `docs/specs/`; the acceptance run on the real stack is
+described in [`docs/acceptance/README.md`](docs/acceptance/README.md).
 
 ## Hardware
 
@@ -22,6 +22,9 @@ specified in `docs/specs/`; the acceptance run on the real stack is described in
 | Adapter | DSD TECH SH-C31A USB-CAN (CANable 2.0, candleLight firmware): [Amazon UK](https://www.amazon.co.uk/dp/B0CDGD1FSH). Works with the Linux kernel `gs_usb` driver as delivered |
 | Host | Raspberry Pi Zero 2 W running Raspberry Pi OS 64-bit (Bookworm or later) |
 | Home Assistant | 2024.11 or newer, with an MQTT broker |
+
+The BMS talks **CAN** on RJ45 pins 4/5 with the Solis DIP setting, not RS485; RS485 stays
+silent. Module numbers are CAN addresses (`0x18F21m??`), not shelf positions.
 
 ### Cable
 
@@ -71,12 +74,18 @@ and the cell sensors stay empty until you turn polling back on.
 
 * **Dyness B3 Stack**: lowest and highest cell (with module and cell number), stack spread,
   total current, stack voltage, SOC, SOH, charge and discharge limits from the BMS, alerts,
-  and the service's own diagnostics (CAN state, health, error counters, restarts, version).
+  and the service's own diagnostics (CAN state, health, local log, error counters, restarts,
+  version).
 * **Dyness B3 Module 1–3** (or the names in `MODULE_NAMES`): 15 cell voltages, min/max cell
   and spread, temperatures, pack voltage, current, SOC, SOH, cycles, lifetime energy,
   current limits, MOSFET, balancing, alarm and protection flags.
 * Alert binary sensors for cell spread, low cell, module current imbalance and any BMS alarm
   or protection.
+
+On by default, the Pi also keeps its own history in `/var/lib/dyness-b3-bms-mqtt/logs`: daily
+CSV files of module and stack values plus an events file, gzip-compressed after a while and
+deleted after a retention period. It needs neither MQTT nor Home Assistant; see
+[`docs/specs/12-local-logging.md`](docs/specs/12-local-logging.md).
 
 Current is positive when charging. A module that stops talking shows as unavailable rather
 than holding its last value.
@@ -86,6 +95,7 @@ than holding its last value.
 All settings are environment variables in `/etc/default/dyness-b3-bms-mqtt`. Every variable,
 its default and its validation is in [`docs/specs/08-configuration.md`](docs/specs/08-configuration.md).
 An invalid setting stops the service with exit status 78 and the journal says which one.
+MQTT topics and JSON payloads are in [`docs/specs/06-mqtt.md`](docs/specs/06-mqtt.md).
 
 ## How it recovers
 

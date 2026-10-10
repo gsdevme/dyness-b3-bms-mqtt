@@ -78,7 +78,7 @@ Why some of these are set or left out (all directives exist in systemd 252):
 | No `SystemCallFilter=` | Left out to avoid unexplained crash loops from interpreter or library syscalls. `SystemCallArchitectures=native` still applies |
 
 * **SVC-02** Unit file and helper changes MUST keep every directive valid for systemd 252.
-  `systemd-analyze verify` on the shipped unit MUST report no unknown directives. **MANUAL**
+  `systemd-analyze verify` on the installed unit MUST report no unknown directives. **MANUAL**
   (run on the Pi).
 
 ## 2. State directory

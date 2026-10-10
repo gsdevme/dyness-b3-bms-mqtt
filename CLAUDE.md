@@ -12,6 +12,13 @@ Spec-driven rules:
   test or a **MANUAL** tag; the suite fails otherwise (`docs/specs/11-testing.md`).
 * Env var names and defaults live only in `docs/specs/08-configuration.md`.
 
+Release rules:
+* Commits are Conventional Commits; release-please derives the CHANGELOG and versions from
+  them. Don't use `chore`.
+* The version lives only in `src/dyness_b3_bms_mqtt/__init__.py`; release-please bumps it.
+* Lines annotated `x-release-please-version` (README quick start, `10-installation.md` §6)
+  are rewritten by release-please; never hand-edit them.
+
 Key facts that are easy to get wrong:
 * B3 is **15S**, not 16S. Cell slot 16 in `0x14` reads 0; ignore it.
 * The BMS talks **CAN** (RJ45 pins 4/5) with the Solis setting, not RS485.

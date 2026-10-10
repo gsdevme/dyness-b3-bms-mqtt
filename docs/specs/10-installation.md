@@ -35,8 +35,10 @@ Repository sources: `packaging/dyness-b3-bms-mqtt.service`, `packaging/can-up`,
 `packaging/dyness-b3-bms-mqtt.env` (CFG-08).
 
 * **INST-03** The installer MUST install to exactly the paths in the table above, with the
-  modes listed, and MUST NOT write anywhere else except the apt package set (INST-06) and
-  root's uv cache.
+  modes listed, and MUST NOT write anywhere else except the apt package set (INST-06),
+  root's uv cache and, when the installer fetches uv, `~root/.config/uv/uv-receipt.json`
+  (honouring `XDG_CONFIG_HOME`). Astral's `install.sh` writes that receipt for `uv self
+  update` bookkeeping; `UV_NO_MODIFY_PATH` does not suppress it.
 
 ## 3. Makefile rules
 
@@ -168,10 +170,11 @@ configuration and state.
   **MANUAL**.
 
 The archive is the source archive GitHub generates for each release tag, so CI uploads
-nothing. It holds the `Makefile`, `packaging/`, `pyproject.toml` and `uv.lock`, which is all
-`sudo make install` needs, and git is not needed on the Pi. The two lines that end with the
-release-please version annotation are rewritten by release-please's generic updater on every
-release, so the quick start always names the latest release.
+nothing. It holds the `Makefile`, `packaging/`, `pyproject.toml`, `uv.lock` and `src/`
+(which INST-06 step 5 installs into the venv), which is all `sudo make install` needs, and
+git is not needed on the Pi. The two lines that end with the release-please version
+annotation are rewritten by release-please's generic updater on every release, so the
+quick start always names the latest release.
 
 * **INST-18** `release-please-config.json` MUST list `README.md` and
   `docs/specs/10-installation.md` as `generic` extra-files, so the annotated version lines

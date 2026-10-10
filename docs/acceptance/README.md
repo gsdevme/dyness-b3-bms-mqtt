@@ -37,7 +37,7 @@ Do the steps in order. The expected observations are in the TEST-39 table.
 
 | # | Action | Covers |
 |---|---|---|
-| 1 | Fresh install, `CAN_LISTEN_ONLY=true`, start the service | CAN-17, INST-15 |
+| 1 | Fresh install, `CAN_LISTEN_ONLY=true`, start the service | INST-15 |
 | 2 | `CAN_LISTEN_ONLY=false`, `sudo make restart`; check again an hour later | SVC-19 |
 | 3 | Unplug the adapter for 2 min, then replug | SVC-21 |
 | 4 | As step 3, but stay unplugged past `DEAD_USB_RESET_S` | |
@@ -53,6 +53,7 @@ Do the steps in order. The expected observations are in the TEST-39 table.
 | 14 | Disk full, then free the space | LOG-22 |
 | 15 | `systemd-analyze verify` on the installed unit | SVC-02 |
 | 16 | Edit the env file, `sudo make install` again, compare `sha256sum` | INST-16 |
+| 17 | Userspace `gs_usb` listen-only hardware tests on the macOS development machine, then back to the Pi | CAN-17 |
 
 Step 2's hour-long run with polling is the SVC-19 evidence: it is where an adapter stall
 after transmitting would show. If the adapter stalls and the escalation reaches exit 76,
@@ -79,7 +80,7 @@ Release: <version or sha> · Kernel: <uname -r> · Debian: <version> · Settings
 | Hardware tests, with poll | pass/fail | |
 | Step 1 | pass/fail | |
 | … | | |
-| Step 16 | pass/fail | |
+| Step 17 | pass/fail | |
 
 ## UNVERIFIED facts
 

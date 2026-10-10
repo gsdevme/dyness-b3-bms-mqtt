@@ -3,6 +3,7 @@
 All configuration comes from environment variables. On the Pi they are supplied by the
 systemd `EnvironmentFile=/etc/default/dyness-b3-bms-mqtt` (see `09-service.md`). There is
 no config file format of its own, no CLI flags beyond `--version` and `--check-config`.
+Any other command-line argument is logged with the usage line and the process exits 78.
 
 This document is the **single owner** of every variable name and default. Other specs refer
 to variables by name and MUST NOT restate defaults.
@@ -27,6 +28,9 @@ to variables by name and MUST NOT restate defaults.
 * **CFG-06** The service MUST log the effective configuration at `INFO` on start-up with
   `MQTT_PASSWORD` redacted. `--check-config` MUST do the same validation and logging and
   exit 0 or 78 without starting anything else.
+  `LOG_LEVEL` is applied before the start-up configuration is logged, so at `WARNING` or
+  above those lines do not reach the journal; `--check-config` always logs at `INFO` and
+  so always shows the configuration.
 * **CFG-07** The service MUST NOT read any file for configuration other than
   `MQTT_CA_FILE` (when set) and the state directory described in `09-service.md`.
 * **CFG-08** The repository MUST ship `packaging/dyness-b3-bms-mqtt.env`, an example file
@@ -123,7 +127,8 @@ to variables by name and MUST NOT restate defaults.
   them) and without ANSI colour. Each line MUST start with the level name.
 * **CFG-11** At `INFO` the service MUST log: start-up configuration, every health state
   transition, every poll sent, broker connect/disconnect, discovery (re)publish, every alert
-  change, and the reason for every exit. Per-frame logging is `DEBUG` only.
+  change, and the reason for every exit. Per-frame logging is `DEBUG` only. All of these are
+  subject to `LOG_LEVEL`, including the start-up configuration (CFG-06).
 
 ## 9. Local logging
 

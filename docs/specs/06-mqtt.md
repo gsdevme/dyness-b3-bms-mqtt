@@ -19,16 +19,23 @@ module number.
   `ca_certs=MQTT_CA_FILE` when set, otherwise the system CA store. Certificate and host
   name verification MUST NOT be disabled.
 * **MQTT-04** The client MUST connect with `connect_async(MQTT_HOST, MQTT_PORT,
-  keepalive=MQTT_KEEPALIVE_S)`, call `reconnect_delay_set(min_delay=1, max_delay=60)` and run
-  the network loop with `loop_start()`, so an unreachable broker at start-up neither blocks
-  nor fails start-up and paho retries with exponential back-off.
-* **MQTT-05** paho callbacks (`on_connect`, `on_disconnect`, `on_message`) run on paho's
-  thread and MUST only set `threading.Event`s, increment counters and record the latest
-  `<P>/status` payload. All publishing and subscribing MUST happen on the main loop, which
-  checks the events every iteration.
+  keepalive=math.ceil(MQTT_KEEPALIVE_S))`, call
+  `reconnect_delay_set(min_delay=1, max_delay=60)` and run the network loop with
+  `loop_start()`, so an unreachable broker at start-up neither blocks nor fails start-up and
+  paho retries with exponential back-off.
+* **MQTT-05** paho callbacks (`on_connect`, `on_connect_fail`, `on_disconnect`,
+  `on_message`) run on paho's thread and MUST only, under one lock, set or clear the
+  `connected` event, add to the pending events (`MqttEvent.CONNECTED` on a successful
+  connect, `MqttEvent.HA_ONLINE` when `<P>/status` carries `online`) and append log
+  notices. The main loop MUST call `take_events()` every iteration, which logs the pending notices on the main
+  thread and returns the pending events. All publishing and subscribing MUST happen on the
+  main loop.
 * **MQTT-06** Broker unavailability, authentication failure or any MQTT error MUST NOT stop
   CAN reading, change the health state, delay the watchdog or cause an exit. Connects and
-  disconnects (with the reason code) MUST be logged at `INFO` (CFG-11).
+  disconnects MUST be logged from the main loop via `take_events()` (MQTT-05, CFG-11): a
+  successful connect and a disconnect (with the reason code) at `INFO`; a connect refused
+  by the broker (with the reason code) and a connect that fails before any CONNACK (DNS,
+  TCP, TLS) at `WARNING`.
 * **MQTT-07** `mqtt_reconnects` (service payload) MUST count successful connects after the
   first since process start.
 

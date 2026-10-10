@@ -48,7 +48,7 @@ ALARM_FLAGS = tuple(n for n, c in FLAG_CATEGORY.items() if c is FlagCategory.ALA
 PROTECTION_FLAGS = tuple(
     n for n, c in FLAG_CATEGORY.items() if c in (FlagCategory.PROTECTION, FlagCategory.FAULT)
 )
-"""The ``cut`` and ``fault`` flags behind ``bms_protection``, in TEL-09 order (ALERT-08)."""
+"""The ``protection`` and ``fault`` flags behind ``bms_protection``, in TEL-09 order (ALERT-08)."""
 
 FLAG_ALERTS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {"bms_alarm": ALARM_FLAGS, "bms_protection": PROTECTION_FLAGS}
@@ -223,12 +223,13 @@ def imbalance_pct(
 ) -> tuple[bool, float | None]:
     """Return ``(known, imbalance_pct)`` for the module currents (ALERT-06).
 
-    ``known`` is false, with no percentage, when any current is unknown. The percentage is
-    ``None`` while the stack current ``total_current_a`` (the sum rounded to 1 dp, TEL-14)
-    is zero or its magnitude is below ``min_current``, which is a known state that
-    satisfies the clear condition. Otherwise it is the largest deviation of a module
-    current from the unrounded mean as a percentage of the absolute mean, unrounded; with
-    one module it is always 0.
+    ``currents`` are the snapshot's module ``current_a`` values, already rounded to 1 dp
+    (TEL-20). ``known`` is false, with no percentage, when any current is unknown. The
+    percentage is ``None`` while the stack current ``total_current_a`` (the sum rounded to
+    1 dp, TEL-14) is zero or its magnitude is below ``min_current``, which is a known state
+    that satisfies the clear condition. Otherwise it is the largest deviation of a module
+    current from their mean as a percentage of the absolute mean, with neither the mean nor
+    the result rounded; with one module it is always 0.
     """
     known = [c for c in currents if c is not None]
     if not known or len(known) != len(currents):

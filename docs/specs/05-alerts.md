@@ -42,7 +42,7 @@ variables owned by `08-configuration.md`.
 | `cell_low` | Module | Lowest cell, ALERT-05 | value < threshold | `ALERT_CELL_LOW_MV` | Yes |
 | `current_imbalance` | Stack | `imbalance_pct`, ALERT-06 | value > threshold | `ALERT_CURRENT_IMBALANCE_PCT` | Yes |
 | `bms_alarm` | Module | `flags` | any `alarm` flag set | — | No |
-| `bms_protection` | Module | `flags` | any `cut` or `fault` flag set | — | No |
+| `bms_protection` | Module | `flags` | any `protection` or `fault` flag set | — | No |
 | `any_cell_spread` | Stack | Module `cell_spread` | ALERT-10 | — | Inherited |
 | `any_cell_low` | Stack | Module `cell_low` | ALERT-10 | — | Inherited |
 | `any_bms_alarm` | Stack | Module `bms_alarm` | ALERT-10 | — | Inherited |
@@ -70,17 +70,18 @@ variables owned by `08-configuration.md`.
     an active alert clears after debounce and an off alert stays off.
   * Otherwise the on condition is `imbalance_pct > ALERT_CURRENT_IMBALANCE_PCT`.
 
-  `imbalance_pct` MUST be computed from the unrounded currents and published rounded to
-  1 dp. With `MODULE_COUNT` = 1 it is always 0.
+  `imbalance_pct` MUST be computed from the snapshot's module `current_a` values, which are
+  already rounded to 1 dp (TEL-20), with no further rounding of `mean` or the result, and
+  published rounded to 1 dp. With `MODULE_COUNT` = 1 it is always 0.
 * **ALERT-07** `bms_alarm` (per module): on when any flag of class `alarm` (TEL-09: `0x24`
   byte 1 bits 0–6 and byte 3 bit 5) is set, off when none is, unknown when `flags` is
   `None`. Its active flag list MUST hold the names of the set `alarm` flags.
-* **ALERT-08** `bms_protection` (per module): on when any flag of class `cut` (byte 0 bits
-  0–6, byte 3 bit 4) or class `fault` (`Short`, `PwrDown`, `MOS_TempH`, `InternalComErr`,
-  `Reverse`, `InvalidCell`, `ChgMOS_Err`, `DisMOS_Err`) is set, off when none is, unknown
-  when `flags` is `None`. Its active flag list MUST hold the names of the set `cut` and
-  `fault` flags. This deliberately differs from the stack telemetry field `any_protection`
-  (TEL-17), which counts `cut` bits only.
+* **ALERT-08** `bms_protection` (per module): on when any flag of class `protection`
+  (byte 0 bits 0–6, byte 3 bit 4) or class `fault` (`Short`, `PwrDown`, `MOS_TempH`,
+  `InternalComErr`, `Reverse`, `InvalidCell`, `ChgMOS_Err`, `DisMOS_Err`) is set, off when
+  none is, unknown when `flags` is `None`. Its active flag list MUST hold the names of the set `protection`
+  and `fault` flags. This deliberately differs from the stack telemetry field
+  `any_protection` (TEL-17), which counts `protection` bits only.
 * **ALERT-09** Active flag lists MUST use the exact names and canonical order of TEL-09,
   MUST be an empty list when the alert is off, and MUST be `None` when it is unknown.
 * **ALERT-10** Each stack roll-up `any_<key>` MUST be on if any module's `<key>` is on;
@@ -148,10 +149,15 @@ weak cell relaxes after load.
   or of an active flag list, the service MUST publish the affected module state payload
   and the stack state payload immediately, without waiting for `PUBLISH_INTERVAL_S` (see
   `06-mqtt.md`). Changes of an input value alone MUST NOT trigger an immediate publish.
-* **ALERT-17** Every alert state change MUST be logged at `INFO` with the scope, key, old
-  and new state, input value and threshold, for example
-  `INFO alert module 2 cell_low: off -> on (value=2994 mV, threshold=3000 mV)`. Changes of
-  an active flag list MUST be logged at `INFO` with the new list.
+* **ALERT-17** Every alert state change MUST be logged at `INFO` with the scope, key, and
+  old and new state. A change of a threshold alert (`cell_spread`, `cell_low`,
+  `current_imbalance`) MUST add its input value and threshold, for example
+  `INFO alert module 2 cell_low: off -> on (value=2994 mV, threshold=3000 mV)`; a change of
+  a BMS flag alert (`bms_alarm`, `bms_protection`) MUST add its active flag list, for
+  example `INFO alert module 1 bms_alarm: off -> on (flags=[CellV_AlarmH])`; a change of a
+  roll-up (`any_*`) adds neither. A change of an active flag list alone MUST be logged at
+  `INFO` with the new list, for example
+  `INFO alert module 1 bms_alarm flags: [CellV_AlarmH, CellV_AlarmL]`.
 * **ALERT-18** Alert thresholds MUST come only from the variables in the catalogue above,
   read once at start-up (CFG-01). Thresholds, the debounce time and the hysteresis
   settings (`ALERT_HYSTERESIS_PCT`, `ALERT_CELL_LOW_HYSTERESIS_MV`) MUST NOT be hard-coded.

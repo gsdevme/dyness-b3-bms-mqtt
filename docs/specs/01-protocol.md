@@ -52,6 +52,12 @@ exactly one class.
   `malformed_frames`. `UNKNOWN` frames MUST increment `unknown_frames`; `ECHO` frames MUST
   increment `echo_frames`. These counters are published as service diagnostics (see
   `04-telemetry.md`, `06-mqtt.md`).
+
+  Informative: the transport's acceptance set (`02-can-transport.md`, CAN-08/CAN-09) does
+  not include `0x305`, `0x30F`, `0x35A`, `0x35E`, `0x370` or `0x371`, and `recv` applies it
+  in software on every interface, so the `IGNORED` class never occurs at runtime. For the
+  same reason `unknown_frames` only counts module-range ids with a wrong module number or
+  an unlisted frame code.
 * **PROTO-05** The "Bus activity" column defines which frames prove the bus is alive. Every
   class marked Yes MUST be reported to the health machine as a received frame (it keeps
   `bus_age` fresh, see `03-health-and-recovery.md`). `ECHO` frames and error frames MUST
@@ -235,7 +241,7 @@ requirements on the decoder.
 | `0x18F20103` heartbeat at 10 Hz | Confirmed |
 | Stack frames `0x351`…`0x70D` about 1 Hz each | Confirmed |
 | `0x11`–`0x15` and `0x17` are only sent after a poll of that module, once per poll | Confirmed |
-| After a few minutes of polling the cell stream continues at about 1 Hz per module with no further polls (still streaming 15+ minutes and overnight later) | Confirmed |
+| After a few minutes of polling the cell stream continues at about 1 Hz per module with no further polls (still streaming 15+ minutes and overnight later) | Confirmed. The authority's `docs/findings.md` (overnight listen-only logging, 8–9 Oct) records the all-night stream |
 | How long the cell stream persists with no poll at all, and whether it survives a BMS restart | **UNVERIFIED** |
 | Polling each module at about 1 Hz causes no CAN errors and does not interrupt the inverter frames | Confirmed |
 | Normal traffic exceeds 30 frames/s | Confirmed |
