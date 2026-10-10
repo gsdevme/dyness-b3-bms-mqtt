@@ -87,11 +87,6 @@ earlier design records (`2026-10-09-dyness-b3-bms-mqtt-design.md`,
     step 4 exits 76 with the adapter unplugged, so it cannot show a stalled adapter coming
     back. The one-hour run with polling in step 2 is where a stall would appear and is the
     real evidence; the README now says so.
-14. **TEST-35** (`11-testing.md`, `.github/workflows/ci.yml`): the `mqtt` job's service
-    container pulled `eclipse-mosquitto:1.6` from Docker Hub, whose unauthenticated pull
-    rate limit failed the job on shared runners. The same official image is now pulled from
-    the AWS Public ECR mirror, `public.ecr.aws/docker/library/eclipse-mosquitto:1.6`, which
-    has no pull limit. TEST-35's wording is otherwise unchanged.
 
 ## Risks
 

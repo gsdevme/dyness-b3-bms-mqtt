@@ -1,0 +1,14 @@
+# Local MQTT broker for the tests marked `mosquitto` (TEST-35):
+#   docker compose up -d
+#   uv run pytest --mosquitto -m mosquitto
+# It mirrors the service container of the `mqtt` job in .github/workflows/ci.yml.
+services:
+  mosquitto:
+    # Mosquitto 1.6, because 2.x only accepts anonymous remote clients when given a
+    # configuration file; 1.6 accepts them by default, so no config needs mounting.
+    # Pulled from the AWS Public ECR mirror of Docker Hub's official library, because
+    # unauthenticated Docker Hub pulls hit its pull rate limit.
+    image: public.ecr.aws/docker/library/eclipse-mosquitto:1.6
+    ports:
+      # The tests' default MQTT_HOST:MQTT_PORT is localhost:1883.
+      - "1883:1883"

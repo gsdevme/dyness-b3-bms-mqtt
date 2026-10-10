@@ -5,12 +5,12 @@ The parser is checked directly against a throwaway spec tree and against the rea
 one spec file with the prefix ``DEMO``.
 """
 
-import tomllib
 from pathlib import Path
 
 import pytest
 
 from tests.plugins.reqtrace import ID_PATTERN, classify, known_prefixes, parse_specs
+from tests.support.inner_run import configure_inner_run
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -93,15 +93,7 @@ def _write_specs(base: Path, **files: str) -> Path:
 @pytest.fixture
 def harness(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> pytest.Pytester:
     """Return a pytester directory configured like the project, with a DEMO spec tree."""
-    with (ROOT / "pyproject.toml").open("rb") as handle:
-        markers: list[str] = tomllib.load(handle)["tool"]["pytest"]["ini_options"]["markers"]
-    monkeypatch.setenv("PYTHONPATH", str(ROOT))
-    pytester.makeini(
-        "[pytest]\n"
-        "addopts = --strict-markers --strict-config -ra\n"
-        "markers =\n" + "".join(f"    {marker}\n" for marker in markers)
-    )
-    pytester.makeconftest('pytest_plugins = ["tests.plugins.markers", "tests.plugins.reqtrace"]\n')
+    configure_inner_run(pytester, monkeypatch, ["tests.plugins.markers", "tests.plugins.reqtrace"])
     _write_specs(pytester.path, **{"01-demo.md": DEMO})
     return pytester
 
@@ -355,6 +347,7 @@ def test_hardware_tests_do_not_cover(harness: pytest.Pytester) -> None:
     )
     result = harness.runpytest("--req-strict", "--hardware")
     assert result.ret == pytest.ExitCode.TESTS_FAILED
+    result.assert_outcomes(passed=2, deselected=1)
     result.stdout.fnmatch_lines(
         [
             "reqtrace: error: MUST requirements not covered by any test:",

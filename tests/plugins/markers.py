@@ -4,17 +4,19 @@ The markers are registered in ``pyproject.toml``; this plugin gives them their m
 
 * ``hardware`` tests are skipped unless pytest is given ``--hardware``. ``--hardware-poll``
   additionally allows them to transmit the module poll; without it they stay listen-only
-  (TEST-38).
-* ``mosquitto`` tests are skipped unless a TCP connection to ``MQTT_HOST``:``MQTT_PORT``
-  succeeds within ``BROKER_CONNECT_TIMEOUT_S``. With ``MQTT_REQUIRE_BROKER=1`` (set by the
-  CI ``mqtt`` job) an unreachable broker fails them instead, so that job cannot pass green
-  with every test skipped.
+  (TEST-38). Every such skip carries its reason so ``-ra`` reports why the test did not run.
+* ``mosquitto`` tests are deselected unless pytest is given ``--mosquitto``, so the default
+  run neither runs nor reports them. With it the broker at ``MQTT_HOST``:``MQTT_PORT`` is a
+  hard requirement: it is probed once per session, retrying for up to ``BROKER_WAIT_S``
+  (a CI service container may still be starting), and if it never accepts a TCP connection
+  every ``mosquitto`` test fails with the address and the wait as its reason.
 * ``integration`` tests may sleep and are capped at ``INTEGRATION_TIMEOUT_S`` by a
   pytest-timeout ``timeout`` marker; a stricter per-test ``timeout`` is kept. A marker beats
   the suite-wide ``timeout`` ceiling in ``pyproject.toml``, which every other test gets.
   Every other test also has ``time.sleep`` replaced by a function that fails the test.
 
-Every skip carries its reason so ``-ra`` reports why the test did not run.
+``INTEGRATION_TIMEOUT_S`` and ``BROKER_WAIT_S`` are read when they are applied, so a
+throwaway pytest run's ``conftest.py`` may shrink them to keep the harness's own tests fast.
 """
 
 import os
@@ -26,11 +28,13 @@ from typing import NoReturn
 import pytest
 
 INTEGRATION_TIMEOUT_S = 10.0
+BROKER_WAIT_S = 10.0
 BROKER_CONNECT_TIMEOUT_S = 1.0
+BROKER_RETRY_S = 0.25
 DEFAULT_MQTT_HOST = "localhost"
 DEFAULT_MQTT_PORT = 1883
-REQUIRE_BROKER_ENV = "MQTT_REQUIRE_BROKER"
-_BROKER_REQUIRED = pytest.StashKey[str]()
+_BROKER_UNREACHABLE = pytest.StashKey[str]()
+_sleep = time.sleep
 
 
 def broker_address(environ: Mapping[str, str]) -> tuple[str, int]:
@@ -44,17 +48,26 @@ def broker_address(environ: Mapping[str, str]) -> tuple[str, int]:
     return host, port
 
 
-def broker_reachable(host: str, port: int) -> bool:
-    """Return whether a TCP connection to ``host``:``port`` succeeds within the timeout."""
-    try:
-        with socket.create_connection((host, port), timeout=BROKER_CONNECT_TIMEOUT_S):
-            return True
-    except OSError:
-        return False
+def broker_reachable(host: str, port: int, wait_s: float = 0.0) -> bool:
+    """Return whether a TCP connection to ``host``:``port`` succeeds within ``wait_s``.
+
+    One connection attempt, limited to ``BROKER_CONNECT_TIMEOUT_S``, is always made; further
+    attempts follow ``BROKER_RETRY_S`` apart until ``wait_s`` has passed. The pause uses the
+    real ``time.sleep`` captured at import, because the probe runs during collection.
+    """
+    deadline = time.monotonic() + wait_s
+    while True:
+        try:
+            with socket.create_connection((host, port), timeout=BROKER_CONNECT_TIMEOUT_S):
+                return True
+        except OSError:
+            if time.monotonic() >= deadline:
+                return False
+        _sleep(BROKER_RETRY_S)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add ``--hardware`` and ``--hardware-poll``."""
+    """Add ``--hardware``, ``--hardware-poll`` and ``--mosquitto``."""
     group = parser.getgroup("dyness", "dyness-b3-bms-mqtt markers")
     group.addoption(
         "--hardware",
@@ -67,6 +80,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help="let hardware tests transmit the module poll (otherwise listen-only)",
+    )
+    group.addoption(
+        "--mosquitto",
+        action="store_true",
+        default=False,
+        help="run tests marked mosquitto; they fail if MQTT_HOST:MQTT_PORT is unreachable",
     )
 
 
@@ -81,15 +100,24 @@ def _within_cap(marker: pytest.Mark | None) -> bool:
     return isinstance(seconds, int | float) and 0 < seconds <= INTEGRATION_TIMEOUT_S
 
 
+def _require_broker(mosquitto: list[pytest.Item]) -> None:
+    """Probe the broker once and mark every ``mosquitto`` test to fail if it is unreachable."""
+    host, port = broker_address(os.environ)
+    if broker_reachable(host, port, BROKER_WAIT_S):
+        return
+    reason = f"broker unreachable at {host}:{port} within {BROKER_WAIT_S:g} s (--mosquitto)"
+    for item in mosquitto:
+        item.stash[_BROKER_UNREACHABLE] = reason
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Apply the integration timeout and the hardware and mosquitto skips.
+    """Apply the integration timeout, the hardware skip and the mosquitto selection.
 
     An integration test's effective timeout is the smaller of its own ``timeout`` marker and
     ``INTEGRATION_TIMEOUT_S``: unless its own limit is already within the cap, the cap
-    marker is put first so it becomes the closest ``timeout`` marker. The broker is probed
-    at most once per session, and only when a ``mosquitto`` test was collected; when it is
-    unreachable and ``MQTT_REQUIRE_BROKER`` is ``1`` the tests are marked to fail rather
-    than skipped.
+    marker is put first so it becomes the closest ``timeout`` marker. Without
+    ``--mosquitto`` the ``mosquitto`` tests are deselected; with it the broker is probed
+    only when such a test was collected.
     """
     cap = pytest.mark.timeout(INTEGRATION_TIMEOUT_S)
     hardware_skip = pytest.mark.skip(reason="--hardware not given")
@@ -101,22 +129,19 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(cap, append=False)
         if item.get_closest_marker("hardware") and not config.getoption("--hardware"):
             item.add_marker(hardware_skip)
-    if mosquitto:
-        host, port = broker_address(os.environ)
-        if not broker_reachable(host, port):
-            reason = f"broker unreachable at {host}:{port}"
-            required = os.environ.get(REQUIRE_BROKER_ENV) == "1"
-            for item in mosquitto:
-                if required:
-                    item.stash[_BROKER_REQUIRED] = f"{reason} and {REQUIRE_BROKER_ENV}=1"
-                else:
-                    item.add_marker(pytest.mark.skip(reason=reason))
+    if not mosquitto:
+        return
+    if config.getoption("--mosquitto"):
+        _require_broker(mosquitto)
+        return
+    config.hook.pytest_deselected(items=mosquitto)
+    items[:] = [item for item in items if not item.get_closest_marker("mosquitto")]
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_call(item: pytest.Item) -> None:
-    """Fail a ``mosquitto`` test before it runs when a required broker is unreachable."""
-    reason = item.stash.get(_BROKER_REQUIRED, None)
+    """Fail a ``mosquitto`` test before it runs when the required broker is unreachable."""
+    reason = item.stash.get(_BROKER_UNREACHABLE, None)
     if reason is not None:
         pytest.fail(reason, pytrace=False)
 

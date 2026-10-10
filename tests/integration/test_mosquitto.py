@@ -1,7 +1,8 @@
 """``PahoPublisher`` against a real broker (TEST-37, TEST-35).
 
-Every test here is marked ``mosquitto`` and ``integration``: it is skipped unless a broker
-accepts a TCP connection at ``MQTT_HOST``:``MQTT_PORT`` and it may wait on real time. Each
+Every test here is marked ``mosquitto`` and ``integration``: it is deselected unless pytest
+is given ``--mosquitto``, then fails unless a broker accepts a TCP connection at
+``MQTT_HOST``:``MQTT_PORT``, and it may wait on real time. Each
 test uses its own client ids and base topic so retained messages from other runs cannot
 interfere, and an independent paho client observes what the broker delivers.
 """

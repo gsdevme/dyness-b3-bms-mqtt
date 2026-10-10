@@ -117,7 +117,7 @@ def test_release_please_config() -> None:
     }
 
 
-@pytest.mark.req("TEST-02")
+@pytest.mark.req("TEST-02", "TEST-11")
 def test_markers_registered_and_strict(pytestconfig: pytest.Config) -> None:
     ini = _pyproject()["tool"]["pytest"]["ini_options"]
     names = {line.split(":")[0].split("(")[0].strip() for line in ini["markers"]}
@@ -189,10 +189,11 @@ def test_ci_workflow() -> None:
         "public.ecr.aws/docker/library/eclipse-mosquitto:1.6"
     ]
     assert services[0]["ports"] == ["1883:1883"]
-    assert mqtt["env"] == {
-        "MQTT_HOST": "localhost",
-        "MQTT_PORT": "1883",
-        "MQTT_REQUIRE_BROKER": "1",
-    }
+    assert mqtt["env"] == {"MQTT_HOST": "localhost", "MQTT_PORT": "1883"}
     assert setup_uv(mqtt)["with"]["python-version"] == "3.14"
-    assert runs(mqtt) == ["uv sync --frozen", "uv run --frozen pytest -m mosquitto"]
+    assert runs(mqtt) == ["uv sync --frozen", "uv run --frozen pytest --mosquitto -m mosquitto"]
+
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    assert compose["services"] == {
+        "mosquitto": {"image": services[0]["image"], "ports": ["1883:1883"]}
+    }
