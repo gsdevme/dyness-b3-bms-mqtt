@@ -12,7 +12,7 @@ specified in `09-service.md`.
   `/etc/os-release` has `ID=debian` (or `ID_LIKE` containing `debian`) with a numeric
   `VERSION_ID` of at least 12. If either check fails, it MUST stop with a clear message before
   changing anything.
-* **INST-02** `install`, `uninstall` and `restart` MUST run as root (`sudo make install`). If
+* **INST-02** `install`, `upgrade`, `uninstall` and `restart` MUST run as root (`sudo make install`). If
   run as anyone else they MUST stop with `run with sudo` before changing anything. The
   checkout can be at any path, including under `/home`.
 
@@ -38,7 +38,8 @@ Repository sources: `packaging/dyness-b3-bms-mqtt.service`, `packaging/can-up`,
   modes listed, and MUST NOT write anywhere else except the apt package set (INST-06),
   root's uv cache and, when the installer fetches uv, `~root/.config/uv/uv-receipt.json`
   (honouring `XDG_CONFIG_HOME`). Astral's `install.sh` writes that receipt for `uv self
-  update` bookkeeping; `UV_NO_MODIFY_PATH` does not suppress it.
+  update` bookkeeping; `UV_NO_MODIFY_PATH` does not suppress it. `upgrade` (INST-19) adds
+  only the new checkout next to the existing one.
 
 ## 3. Makefile rules
 
@@ -86,6 +87,35 @@ Repository sources: `packaging/dyness-b3-bms-mqtt.service`, `packaging/can-up`,
 * **INST-07** `install` MUST be idempotent. Running it again on an installed system upgrades
   the venv, helpers, unit and udev rule in place, never overwrites the env file or the state
   directory, and restarts the service.
+
+### `upgrade`
+
+* **INST-19** `upgrade` MUST install another release from a new checkout next to the
+  existing one, so that `sudo make upgrade` run in any checkout moves the Pi to the newest
+  release. It MUST:
+  1. Run the checks in INST-01 and INST-02, then stop with a one-line message if `curl` is
+     not on `PATH`.
+  2. Take the release tag from `VERSION=vX.Y.Z` on the command line or, without it, from
+     the first `tag_name` of
+     `curl -fsSL https://api.github.com/repos/gsdevme/dyness-b3-bms-mqtt/releases?per_page=1`,
+     which lists the newest release first, prereleases included (`/releases/latest` skips
+     prereleases, and every release is one until 1.0, INST-18). A failed request, a response
+     without `tag_name` or a tag that is not `vX.Y.Z` MUST stop it with a one-line message.
+  3. If `/opt/dyness-b3-bms-mqtt/.venv/bin/dyness-b3-bms-mqtt --version` prints the tag's
+     `X.Y.Z`, print `already at vX.Y.Z` and exit 0 without downloading anything.
+  4. Stop with a one-line message if `dyness-b3-bms-mqtt-X.Y.Z` already exists (as a file,
+     directory or link) in the directory that holds the checkout, telling the user to
+     remove it or pass `VERSION`. It MUST NOT overwrite or add to an existing path.
+  5. `curl -fsSL https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags/vX.Y.Z.tar.gz`
+     and unpack it into that directory. A failed download or unpack, or an archive without
+     `dyness-b3-bms-mqtt-X.Y.Z/Makefile`, MUST stop it with a one-line message; a failed
+     download or unpack removes what was unpacked.
+  6. Give the new checkout the owner and group of the existing one, run `install` in it as
+     a sub-make (`make -C <new checkout> install`), then print the new checkout's path and
+     that the old one can be removed.
+
+  Besides what `install` writes (INST-03), `upgrade` MUST write only the new checkout.
+  `make -n upgrade` MUST download and install nothing.
 
 ### `uninstall`
 
@@ -159,8 +189,8 @@ sudo make restart
 make logs
 ```
 
-Upgrade: download the newer release the same way and run `sudo make install` from its
-directory. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
+Upgrade: run `sudo make upgrade` in the existing checkout; it unpacks the newest release
+next to it and installs that. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
 configuration and state.
 
 * **INST-15** The README quick-start commands above MUST work on a fresh Pi OS Lite 64-bit

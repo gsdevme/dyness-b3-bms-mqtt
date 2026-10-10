@@ -140,7 +140,7 @@ that is explicitly labelled as using the default values (as in `05-alerts.md` §
 | `07-home-assistant.md` | Discovery devices and entities, availability, expiry, republish |
 | `08-configuration.md` | Every environment variable, defaults, validation |
 | `09-service.md` | systemd unit, watchdog, root helpers, udev rule, USB reset |
-| `10-installation.md` | Makefile targets, paths, uv and Python 3.14, idempotency, install from the GitHub release archive, single-sourced version (INST-17), release-please and `vX.Y.Z` prerelease tags (INST-18) |
+| `10-installation.md` | Makefile targets, paths, uv and Python 3.14, idempotency, install from the GitHub release archive, `make upgrade` to a newer release (INST-19), single-sourced version (INST-17), release-please and `vX.Y.Z` prerelease tags (INST-18) |
 | `11-testing.md` | Simulated stack, fakes, capture replay, traceability, hardware acceptance, lint, types and CI (TEST-33..35) |
 | `12-local-logging.md` | Local CSV and events history on the Pi, daily files, compression, retention, write faults |
 
