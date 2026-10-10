@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.1...v0.1.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **telemetry:** require all five cell frames before cells_fresh ([5217909](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/521790996a8ae73549e1790d09544fa69bbb6c52))
+
+
+### Documentation
+
+* **specs:** make 01-protocol the self-contained protocol authority ([2ad91aa](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/2ad91aa6abacf7f716557582533ee695cfa54fca))
+* **specs:** reconcile the living spec with the code after 0.1.x ([85f4aa1](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/85f4aa1c2133992633a9122608f20442342bd5a4))
+
 ## [0.1.1](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.0...v0.1.1) (2026-10-10)
 
 
