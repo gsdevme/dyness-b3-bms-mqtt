@@ -244,9 +244,11 @@ possible future hook. It is not a requirement and has no configuration variable.
      for `CAN_USB_ID` (`vvvv:pppp`) and use the first match in sorted order. Log any other
      matches. If nothing matches, log `usb device not found` and go straight to step 6.
   3. **USBDEVFS_RESET ioctl.** Read `busnum` and `devnum` from the device directory and
-     form `/dev/bus/usb/BBB/DDD` (zero-padded to 3 digits). If `usbreset` (from usbutils) is
-     on `PATH`, run `usbreset /dev/bus/usb/BBB/DDD`. Otherwise run the system interpreter
-     (not the service venv):
+     form the address `BBB/DDD` (each zero-padded to 3 digits). If `usbreset` (from
+     usbutils) is on `PATH`, run `usbreset BBB/DDD`; usbutils' `usbreset` accepts a
+     bus/device number, vendor:product ID, serial or product name, but not a
+     `/dev/bus/usb/...` device-node path. Otherwise run the system interpreter (not the
+     service venv) on the device node:
 
      ```sh
      /usr/bin/python3 -c 'import fcntl, os, sys; fd = os.open(sys.argv[1], os.O_WRONLY); fcntl.ioctl(fd, 0x5514, 0); os.close(fd)' "/dev/bus/usb/$BBB/$DDD"

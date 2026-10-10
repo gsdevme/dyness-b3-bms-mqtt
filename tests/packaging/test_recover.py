@@ -60,9 +60,9 @@ def in_order(lines: list[str], *fragments: str) -> None:
         position += 1
 
 
-def usbreset_call(box: Sandbox, busnum: int = 1, devnum: int = 4) -> list[str]:
-    """Return the expected ``usbreset`` argv for the device node ``BBB/DDD``."""
-    return ["usbreset", f"{box.dev}/bus/usb/{busnum:03d}/{devnum:03d}"]
+def usbreset_call(busnum: int = 1, devnum: int = 4) -> list[str]:
+    """Return the expected ``usbreset`` argv: usbutils takes ``BBB/DDD``, not a device node."""
+    return ["usbreset", f"{busnum:03d}/{devnum:03d}"]
 
 
 def last_exit(box: Sandbox) -> dict[str, object]:
@@ -159,7 +159,7 @@ def test_recover_76_usb_reset_fallback_order(sandbox: Sandbox, step: str) -> Non
     run = sandbox.run("recover", EXIT_STATUS="76", SERVICE_RESULT="exit-code")
     assert run.returncode == 0
     lines = stderr_lines(run.stderr)
-    usbreset = usbreset_call(sandbox)
+    usbreset = usbreset_call()
     unbound = (drivers / "unbind").read_text(), (drivers / "bind").read_text()
     if step == "ip-down-fails":
         assert sandbox.calls() == [DOWN, usbreset, *CAN_UP_FAILING]
@@ -214,7 +214,7 @@ def test_recover_fallback_scan_by_usb_id(
         box.env_file.write_text(f"CAN_USB_ID={usb_id}\n")
     run = box.run("recover", EXIT_STATUS="76")
     assert run.returncode == 0
-    assert box.calls() == [DOWN, usbreset_call(box, devnum=chosen), *NETDEV_POLLS]
+    assert box.calls() == [DOWN, usbreset_call(devnum=chosen), *NETDEV_POLLS]
     lines = stderr_lines(run.stderr)
     for other in others:
         assert any(other in line and "ignored" in line for line in lines), lines
