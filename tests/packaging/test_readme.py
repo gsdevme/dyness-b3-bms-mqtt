@@ -29,8 +29,8 @@ def quick_start_section() -> str:
 @pytest.mark.req("INST-06", "INST-08", "INST-09")
 def test_readme_quick_start_exact() -> None:
     block = promised_block()
-    assert block.startswith("```sh\nsudo apt-get install -y git make\n")
-    assert block.endswith("to also remove configuration and state.\n")
+    assert block.startswith("```sh\nsudo apt-get install -y curl make\n")
+    assert block.endswith("to also remove\nconfiguration and state.\n")
     section = quick_start_section()
     assert block in section
     assert section.count("```") == 2

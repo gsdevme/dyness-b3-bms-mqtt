@@ -2,6 +2,10 @@
 # bumps the version in pyproject.toml, updates CHANGELOG.md and tags vX.Y.Z.
 # The "extra-files" entry in release-please-config.json also bumps this package's own
 # version in uv.lock, so the committed lock stays current after a release (INST-11).
+# Its two "generic" entries rewrite every line marked `x-release-please-version` in
+# README.md and docs/specs/10-installation.md, so the quick start always downloads the
+# latest release's source archive (INST-18).
+# "prerelease": true marks each GitHub release as a prerelease until 1.0 (INST-18).
 #
 # .release-please-manifest.json holds the last *released* version, and release-please
 # treats whatever it says as already released. Nothing has been tagged yet, so it starts

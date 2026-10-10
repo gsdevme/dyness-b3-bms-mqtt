@@ -11,7 +11,8 @@ work and the record format.
 
 1. Flash Pi OS Lite 64-bit Bookworm and follow the README quick start, with
    `CAN_LISTEN_ONLY=true` in `/etc/default/dyness-b3-bms-mqtt`.
-2. Note the commit (`git rev-parse --short HEAD`), `uname -r` and `cat /etc/debian_version`.
+2. Note the release installed (the archive's version, or `git rev-parse --short HEAD` when
+   testing a git checkout), `uname -r` and `cat /etc/debian_version`.
 3. Keep a terminal on `make logs`; use `systemctl status dyness-b3-bms-mqtt` and
    `ip -d -s link show can0` for the other observations.
 
@@ -70,7 +71,7 @@ Add `docs/acceptance/YYYY-MM-DD-hardware-acceptance.md` for the date of the run:
 ```markdown
 # Hardware acceptance YYYY-MM-DD
 
-Commit: <sha> · Kernel: <uname -r> · Debian: <version> · Settings changed: <list>
+Release: <version or sha> · Kernel: <uname -r> · Debian: <version> · Settings changed: <list>
 
 | Check | Result | Notes |
 |---|---|---|

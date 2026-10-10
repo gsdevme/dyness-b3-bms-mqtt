@@ -1,7 +1,8 @@
 # 10 — Installation (`INST`)
 
 How the service gets onto a Pi. A `Makefile` in the repository root installs, upgrades and
-removes everything from a git checkout. The unit file, helpers and udev rule it installs are
+removes everything from an unpacked release archive (or a git checkout, for development).
+Either is called "the checkout" below. The unit file, helpers and udev rule it installs are
 specified in `09-service.md`.
 
 ## 1. Supported target
@@ -142,9 +143,9 @@ The README is written separately. It MUST give these quick-start commands, which
 installer MUST support exactly as written:
 
 ```sh
-sudo apt-get install -y git make
-git clone https://github.com/gsdevme/dyness-b3-bms-mqtt.git
-cd dyness-b3-bms-mqtt
+sudo apt-get install -y curl make
+curl -L https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags/v0.1.0.tar.gz | tar xz  # x-release-please-version
+cd dyness-b3-bms-mqtt-0.1.0  # x-release-please-version
 sudo make install
 sudo nano /etc/default/dyness-b3-bms-mqtt   # set MQTT_HOST etc.
 sudo make check-config
@@ -152,11 +153,23 @@ sudo make restart
 make logs
 ```
 
-Upgrade: `git pull && sudo make install`. Removal: `sudo make uninstall`, or
-`sudo make uninstall PURGE=1` to also remove configuration and state.
+Upgrade: download the newer release the same way and run `sudo make install` from its
+directory. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
+configuration and state.
 
 * **INST-15** The README quick-start commands above MUST work on a fresh Pi OS Lite 64-bit
   Bookworm image, with the service ending up `active (running)`. **MANUAL**.
 * **INST-16** A second `sudo make install` on the same Pi MUST finish without errors, keep a
   modified `/etc/default/dyness-b3-bms-mqtt` byte-for-byte, and restart the service.
   **MANUAL**.
+
+The archive is the source archive GitHub generates for each release tag, so CI uploads
+nothing. It holds the `Makefile`, `packaging/`, `pyproject.toml` and `uv.lock`, which is all
+`sudo make install` needs, and git is not needed on the Pi. The two lines that end with the
+release-please version annotation are rewritten by release-please's generic updater on every
+release, so the quick start always names the latest release.
+
+* **INST-18** `release-please-config.json` MUST list `README.md` and
+  `docs/specs/10-installation.md` as `generic` extra-files, so the annotated version lines
+  are bumped with each release, and MUST mark releases as prereleases (`"prerelease": true`)
+  until 1.0.

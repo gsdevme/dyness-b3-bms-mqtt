@@ -47,9 +47,9 @@ as they are (master `0010`, slaves `0000`).
 On the Pi:
 
 ```sh
-sudo apt-get install -y git make
-git clone https://github.com/gsdevme/dyness-b3-bms-mqtt.git
-cd dyness-b3-bms-mqtt
+sudo apt-get install -y curl make
+curl -L https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags/v0.1.0.tar.gz | tar xz  # x-release-please-version
+cd dyness-b3-bms-mqtt-0.1.0  # x-release-please-version
 sudo make install
 sudo nano /etc/default/dyness-b3-bms-mqtt   # set MQTT_HOST etc.
 sudo make check-config
@@ -57,8 +57,9 @@ sudo make restart
 make logs
 ```
 
-Upgrade: `git pull && sudo make install`. Removal: `sudo make uninstall`, or
-`sudo make uninstall PURGE=1` to also remove configuration and state.
+Upgrade: download the newer release the same way and run `sudo make install` from its
+directory. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
+configuration and state.
 
 `make install` installs `uv` and Python 3.14 if needed, the service, the `can0` set-up helper
 and a udev rule. Running it again upgrades in place and never overwrites your settings.

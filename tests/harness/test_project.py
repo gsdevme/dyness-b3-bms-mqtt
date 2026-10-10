@@ -87,13 +87,16 @@ def test_release_please_config() -> None:
                 "changelog-path": "CHANGELOG.md",
                 "include-v-in-tag": True,
                 "bump-minor-pre-major": True,
+                "prerelease": True,
                 "pull-request-title-pattern": "build${scope}: release${component} ${version}",
                 "extra-files": [
                     {
                         "type": "toml",
                         "path": "uv.lock",
                         "jsonpath": "$.package[?(@.name=='dyness-b3-bms-mqtt')].version",
-                    }
+                    },
+                    {"type": "generic", "path": "README.md"},
+                    {"type": "generic", "path": "docs/specs/10-installation.md"},
                 ],
             }
         }
@@ -115,6 +118,30 @@ def test_release_please_config() -> None:
         "config-file": "release-please-config.json",
         "manifest-file": ".release-please-manifest.json",
     }
+
+
+@pytest.mark.req("INST-18")
+def test_quick_start_version_is_bumped_by_release_please() -> None:
+    """The quick start names the current release, and release-please keeps it that way.
+
+    Each file carries exactly two annotated lines, the download and the ``cd`` into the
+    unpacked archive, and every version on them is the one in ``pyproject.toml``.
+    """
+    package = json.loads((ROOT / "release-please-config.json").read_text())["packages"]["."]
+    assert package["prerelease"] is True
+    generic = {entry["path"] for entry in package["extra-files"] if entry["type"] == "generic"}
+    assert generic == {"README.md", "docs/specs/10-installation.md"}
+
+    version = _pyproject()["project"]["version"]
+    for path in sorted(generic):
+        lines = [
+            line
+            for line in (ROOT / path).read_text().splitlines()
+            if "# x-release-please-version" in line
+        ]
+        assert len(lines) == 2, path
+        for line in lines:
+            assert re.findall(r"\d+\.\d+\.\d+", line) == [version], line
 
 
 @pytest.mark.req("TEST-02", "TEST-11")
