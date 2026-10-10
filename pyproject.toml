@@ -1,6 +1,6 @@
 [project]
 name = "dyness-b3-bms-mqtt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Read a Dyness B3 battery stack over CAN and publish it to MQTT with Home Assistant discovery"
 readme = "README.md"
 requires-python = ">=3.14"
