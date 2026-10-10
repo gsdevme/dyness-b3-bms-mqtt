@@ -10,8 +10,10 @@
 # and the script never waits, so it fits in udev's RUN+= time budget. A device that refuses
 # restart-ms (gs_usb on some kernels) is configured without it and left at restart-ms 0.
 #
-# The script always exits 0: failures are logged to stderr (journald) with the command and its
-# output, and a link that is still not up is reported by the service's bus open.
+# The script always exits 0: failures are logged to stderr (journald under the unit) with the
+# command and its output, and a link that is still not up is reported by the service's bus
+# open. Under udev, whose RUN+= output is discarded, log lines also go to logger (journalctl
+# -t can-up).
 #
 # Test seams (not service configuration): ENV_FILE replaces /etc/default/dyness-b3-bms-mqtt
 # and SYSFS_ROOT replaces /sys.
@@ -20,11 +22,16 @@ PROG=can-up
 ENV_FILE=${ENV_FILE:-/etc/default/dyness-b3-bms-mqtt}
 SYSFS_ROOT=${SYSFS_ROOT:-/sys}
 
-# log MESSAGE...: write MESSAGE to stderr, every line prefixed with "$PROG: ".
+# log MESSAGE...: write MESSAGE to stderr, every line prefixed with "$PROG: ". Outside systemd
+# (no JOURNAL_STREAM, as under udev, which discards RUN+= output) also hand it to logger, so
+# the lines reach the journal under the tag "$PROG".
 log() {
     printf '%s\n' "$*" | while IFS= read -r line; do
         printf '%s: %s\n' "$PROG" "$line" >&2
     done
+    if [ -z "${JOURNAL_STREAM:-}" ] && command -v logger >/dev/null 2>&1; then
+        printf '%s\n' "$*" | logger -t "$PROG" -p daemon.info 2>/dev/null
+    fi
 }
 
 # unquote VALUE: print VALUE without one layer of matching single or double quotes.
