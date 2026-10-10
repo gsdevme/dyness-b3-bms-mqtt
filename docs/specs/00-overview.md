@@ -23,7 +23,10 @@ In scope:
   with compression and retention.
 * Running unattended as a systemd service that restarts, recovers the CAN adapter, and
   reports its own health. "Always runs" is a primary requirement.
-* A `Makefile` that installs everything onto a stock Raspberry Pi OS (64-bit) image.
+* A `Makefile` that installs everything onto a stock Raspberry Pi OS (64-bit) image from the
+  GitHub release archive, with the version single-sourced in the package and released by
+  release-please as `vX.Y.Z` prerelease tags (`10-installation.md`).
+* Lint, type checks and tests run by `make check` and in CI (`11-testing.md`).
 
 Non-goals. The service MUST NOT:
 
@@ -56,7 +59,7 @@ Non-goals. The service MUST NOT:
 | Stack | All modules together, as seen by the inverter. Stack frames are what the master sends to the inverter |
 | Cell | One of the 15 LFP cells in a module. Numbered 1..15 in this project and in all published data. The BMS uses 0-based numbers in some frames; the protocol spec says where |
 | Broadcast frame | A module frame sent without being asked (`0x16`, `0x21`–`0x24`) |
-| Cell stream | The module frames only sent after a poll (`0x11`–`0x15`, `0x17`). Once started it has been observed to continue indefinitely |
+| Cell stream | The module frames only sent after a poll (`0x11`–`0x15`, `0x17`). Once started it has been seen to continue overnight with no further poll; how long it persists, and whether it survives a BMS restart, is **UNVERIFIED** (`01-protocol.md` §5) |
 | Poll | The single permitted transmit, `0x18F21m77` data `01 00 00 00 00 00 00 00` |
 | Fresh / stale | A value is fresh when its source frame arrived within the relevant timeout (see `03-health-and-recovery.md`), otherwise stale. Stale values are published as `null` |
 | Charging sign | Published current is **positive when charging**, for modules and stack alike |
@@ -112,6 +115,7 @@ confirmed on real hardware on 8–9 October 2026 (see `../dyness-debug/docs/prot
 change, the alternatives rejected and the state of knowledge at the time live in dated
 design documents under `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`. The living
 specs are edited in place; the design docs are never edited after the fact, only added to.
+Implementation plans live under `docs/superpowers/plans/`, alongside the design docs.
 Hardware acceptance results are recorded per run in
 `docs/acceptance/YYYY-MM-DD-hardware-acceptance.md` (`11-testing.md`).
 
@@ -119,7 +123,9 @@ Hardware acceptance results are recorded per run in
 
 Timeouts, thresholds and names that appear in more than one spec are defined once in
 `08-configuration.md` as environment variables and referenced by variable name elsewhere.
-A spec MUST NOT restate a default value that `08-configuration.md` owns.
+A spec MUST NOT restate a default value that `08-configuration.md` owns. A worked example
+that is explicitly labelled as using the default values (as in `05-alerts.md` §3 and
+`07-home-assistant.md` §2) is exempt, since `08-configuration.md` remains the authority.
 
 ## 5. Document index
 
@@ -135,8 +141,8 @@ A spec MUST NOT restate a default value that `08-configuration.md` owns.
 | `07-home-assistant.md` | Discovery devices and entities, availability, expiry, republish |
 | `08-configuration.md` | Every environment variable, defaults, validation |
 | `09-service.md` | systemd unit, watchdog, root helpers, udev rule, USB reset |
-| `10-installation.md` | Makefile targets, paths, uv and Python 3.14, idempotency |
-| `11-testing.md` | Simulated stack, fakes, capture replay, traceability, hardware acceptance |
+| `10-installation.md` | Makefile targets, paths, uv and Python 3.14, idempotency, install from the GitHub release archive, single-sourced version (INST-17), release-please and `vX.Y.Z` prerelease tags (INST-18) |
+| `11-testing.md` | Simulated stack, fakes, capture replay, traceability, hardware acceptance, lint, types and CI (TEST-33..35) |
 | `12-local-logging.md` | Local CSV and events history on the Pi, daily files, compression, retention, write faults |
 
 ## 6. Source material
@@ -147,3 +153,32 @@ A spec MUST NOT restate a default value that `08-configuration.md` owns.
   listen-only / reconnect patterns.
 * `../dyness-debug/data/` — real captures used as test vectors.
 * `../dyness-debug/SPEC.md`, `docs/findings.md` — why the weak cells matter.
+
+## 7. Architecture and source layout
+
+All code lives in `src/dyness_b3_bms_mqtt/`. The protocol, health, telemetry, alert, payload
+and discovery modules are pure; I/O is confined to the transport, publisher, state store,
+local log and the application's `Runtime`.
+
+| Module | Responsibility | Spec |
+|---|---|---|
+| `__init__.py` | Package marker and the single `__version__` line | `10-installation.md` |
+| `__main__.py` | `python -m dyness_b3_bms_mqtt`, the same command as the console script | `09-service.md` |
+| `app.py` | Entry point (`--version`, `--check-config`), wiring, the main loop, signals and exit codes | `09-service.md` |
+| `config.py` | Environment variable names, defaults, parsing and validation | `08-configuration.md` |
+| `protocol.py` | Frame classification, decoding and the guarded poll builder | `01-protocol.md` |
+| `canbus.py` | The only code that talks to python-can: open, receive, poll, shutdown | `02-can-transport.md` |
+| `linkstate.py` | The kernel's view of the SocketCAN link from `ip -j -d -s link show` | `02-can-transport.md` |
+| `health.py` | Pure health and recovery state machine: poll policy, availability, reopen, exit | `03-health-and-recovery.md` |
+| `state_store.py` | Persistent recovery state (`recovery.json`) in `$STATE_DIRECTORY` | `03-health-and-recovery.md` |
+| `status.py` | Shared status vocabularies of the health machine and the local log | `03-health-and-recovery.md`, `12-local-logging.md` |
+| `telemetry.py` | Latest-value store and immutable snapshots with staleness, sign and rounding | `04-telemetry.md` |
+| `alerts.py` | Debounced, hysteresis-protected alert evaluation over snapshots | `05-alerts.md` |
+| `payloads.py` | Module, stack and service JSON state payloads | `06-mqtt.md` |
+| `topics.py` | The MQTT topic layout and discovery identifiers, spelt once | `06-mqtt.md` |
+| `mqtt.py` | The `Publisher` interface and its paho-mqtt implementation | `06-mqtt.md` |
+| `discovery.py` | Home Assistant device-based discovery messages | `07-home-assistant.md` |
+| `localog.py` | Daily CSV and events history with compression and retention | `12-local-logging.md` |
+| `logsetup.py` | Journald-friendly one-line stdout logging | `08-configuration.md`, `09-service.md` |
+| `timefmt.py` | UTC ISO 8601 text for published and persisted timestamps | `06-mqtt.md` |
+| `sdnotify.py` | Dependency-free systemd `sd_notify` client (ready, watchdog, status) | `09-service.md` |

@@ -100,11 +100,8 @@ def test_release_please_config() -> None:
 
     The ``python`` release type bumps ``src/dyness_b3_bms_mqtt/__init__.py`` on its own and
     skips the dynamic ``pyproject.toml``, so no extra-file is needed for the version. The
-    manifest records the last released version. Until the first release it is ``0.0.0``
-    while ``__version__`` says ``0.1.0``: release-please treats a manifest version as
-    already released, so ``0.1.0`` there would make the first ``feat`` release ``0.2.0``.
-    From ``0.0.0`` the first release PR proposes ``0.1.0``, and from then on each release
-    PR moves the manifest and ``__version__`` together.
+    manifest records the last released version, and each release PR moves it and
+    ``__version__`` together, so the two always agree.
     """
     config = json.loads((ROOT / "release-please-config.json").read_text())
     assert config == {
@@ -126,10 +123,7 @@ def test_release_please_config() -> None:
         }
     }
     manifest = json.loads((ROOT / ".release-please-manifest.json").read_text())
-    version = _source_version()
-    assert manifest in ({".": "0.0.0"}, {".": version})
-    if manifest == {".": "0.0.0"}:
-        assert version == "0.1.0"
+    assert manifest == {".": _source_version()}
 
     workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "release-please.yml").read_text())
     triggers = workflow.get("on", workflow.get(True))

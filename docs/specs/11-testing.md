@@ -38,7 +38,8 @@ This is the mechanism behind `00-overview.md` §4.4.
 * **TEST-05** A pytest plugin (`tests/plugins/reqtrace.py`, loaded from `conftest.py`) MUST
   parse every `docs/specs/*.md` file for requirement definitions: a bold identifier
   `**PREFIX-NN**` where `PREFIX` is in the table in `00-overview.md` §4.1. A requirement's
-  text runs from its identifier to the next identifier, heading, table row or blank line.
+  text runs from its identifier to the next identifier, heading, table row, blank line or
+  code fence.
   Each requirement MUST be classified as:
 
   | Status | Rule |
@@ -49,7 +50,8 @@ This is the mechanism behind `00-overview.md` §4.4.
   | `should` | Anything else (`SHOULD`, `MAY`) |
 
   Identifiers that appear only as references (not bold), or inside code spans or fenced
-  code, are not definitions.
+  code, are not definitions. Classification ignores code spans, so a `MUST` or
+  `**MANUAL**` quoted in backticks does not count.
 
   Because a requirement's text ends at the first blank line or table row, a requirement
   whose lead paragraph is followed by a table, a code block or a further paragraph is
@@ -62,12 +64,17 @@ This is the mechanism behind `00-overview.md` §4.4.
   2. a `req` marker names an identifier that is not defined, or is `withdrawn`;
   3. an identifier is defined more than once;
   4. a `req` argument does not match `^[A-Z]+-[0-9]{2}$`.
+
+  Rule 1 fails the session only with the plugin's `--req-strict` option, which
+  `pyproject.toml` supplies through `addopts` so every default run is strict; without it
+  rule 1 is a warning. Rules 2–4 always fail.
 * **TEST-07** Only tests without the `hardware` or `mosquitto` markers MUST count towards
   covering a `must` requirement, so that the default run alone satisfies §4.4. A test counts
   when it is collected, whether it passes or fails (failures already fail the session).
 * **TEST-08** Rule 1 of TEST-06 MUST apply only when the whole default suite is collected.
-  When the run is narrowed (test paths, `-k`, `-m`, `--deselect`, `--lf`, or any other
-  deselection of a test that could cover a requirement), the plugin MUST downgrade rule 1 to
+  When the run is narrowed (test paths, `-k`, `-m`, `--deselect`, `--lf`, `--stepwise`,
+  `--stepwise-skip`, a collection error, or any other deselection of a test that could
+  cover a requirement), the plugin MUST downgrade rule 1 to
   a warning; rules 2–4 MUST still fail. Deselecting the `mosquitto` tests when
   `--mosquitto` is not given does not narrow the run, because they never cover (TEST-07).
 * **TEST-09** At the end of every session the plugin MUST print a one-line summary (counts of
@@ -231,7 +238,8 @@ time-driven and fault-injectable.
   is used. The repository's `docker-compose.yml` SHOULD run the same image on the same port,
   so the same command works locally after `docker compose up -d`.
 * **TEST-36** Line coverage of the pure modules (`protocol`, `telemetry`, `alerts`, `health`,
-  `discovery`, `config`) SHOULD be at least 90 %.
+  `discovery`, `config`) SHOULD be at least 90 %. Neither the suite nor CI measures
+  coverage at present.
 
 ## 9. Integration tests
 
@@ -274,6 +282,7 @@ show can0` and the Home Assistant devices. Times are given by variable name; see
 | 14 | Disk full: check `sudo tune2fs -l` on the root device shows a non-zero reserved block count (so root and the journal keep working), fill the root filesystem for the service user (`df -B1 /` for `Avail`, then `sudo fallocate -l <Avail> /var/tmp/fill`), wait two `LOCAL_LOG_INTERVAL_S`, then `sudo rm /var/tmp/fill` | While full: exactly one `ERROR` line naming the log file and the error; `local_log` shows `error`; module, stack and service state keep publishing; no exit or health change; watchdog fed. After freeing space: `local_log` back to `ok` and `local log recovered` logged at the next hourly housekeeping; rows resume; after `sudo make restart` the service starts with `local_log` `ok` (LOG-22) |
 | 15 | `systemd-analyze verify /etc/systemd/system/dyness-b3-bms-mqtt.service` (SVC-02) | No unknown directives reported |
 | 16 | Edit `/etc/default/dyness-b3-bms-mqtt`, note its `sha256sum`, run `sudo make install` again (INST-16) | Install finishes without errors; the env file's `sha256sum` is unchanged; the service was restarted |
+| 17 | Userspace `gs_usb` listen-only (CAN-17): stop the service, move the SH-C31A to the macOS development machine still wired to the stack, `uv sync --extra gs-usb`, `CAN_INTERFACE=gs_usb CAN_CHANNEL=0 uv run pytest tests/hardware --hardware`; then move the adapter back (replug) and start the service | The bus opens without `LISTEN_ONLY_REFUSED` (the adapter reports listen-only, CAN-16); broadcasts arrive from every module within `START_GRACE_S`; inverter shows no CAN fault; back on the Pi `can0` comes up and the service returns to HEALTHY |
 
 ## 11. Performance
 

@@ -117,7 +117,7 @@ lower case per `06-mqtt.md` (MQTT-18), for example `STALE` → `stale` (HEALTH-2
 | `STARTING` | At start-up when the bus opened and escalation < `DEAD_AFTER`; from `STALE` or `DEAD` when a frame arrives | Staggered polls (HEALTH-08). Grace timer starts | Due staggered polls. `SetAvailability(m, true)` as each module's broadcasts become fresh | All modules `OK` by effective status (HEALTH-05) → `HEALTHY`. `START_GRACE_S` elapsed: all `OK` → `HEALTHY`, otherwise → `DEGRADED`. Bus silent or bus exception → `STALE` |
 | `HEALTHY` | Every module `OK` and the bus fresh | Healthy timer starts | After `RECOVERY_RESET_S` continuously in `HEALTHY`, emit `SetEscalation(0)` once if escalation > 0 | Any module not `OK` → `DEGRADED`. Bus silent or bus exception → `STALE` |
 | `DEGRADED` | Bus fresh, after the grace period, and at least one module not `OK` | `SetAvailability(m, false)` for each `SILENT` module | Poll ladders (HEALTH-09, HEALTH-10). Availability follows module status changes | All `OK` → `HEALTHY`. Bus silent or bus exception → `STALE`. **Never** → `RECOVERING` |
-| `STALE` | From `STARTING`, `HEALTHY` or `DEGRADED` when the bus is silent or a bus exception occurs | `SetAvailability(m, false)` for every module. If `BUS_REOPEN_ATTEMPTS` ≥ 1, `ReopenBus` (attempt 1). Otherwise go straight to `RECOVERING` | When `BUS_SILENCE_S` has passed since the last attempt with no frame (or that attempt reported failure), and attempts < `BUS_REOPEN_ATTEMPTS`, `ReopenBus` again | Frame received → `STARTING`. All `BUS_REOPEN_ATTEMPTS` attempts used and `BUS_SILENCE_S` passed since the last one with no frame → `RECOVERING` |
+| `STALE` | From `STARTING`, `HEALTHY` or `DEGRADED` when the bus is silent or a bus exception occurs | `SetAvailability(m, false)` for every module. If `BUS_REOPEN_ATTEMPTS` ≥ 1, `ReopenBus` (attempt 1). Otherwise go straight to `RECOVERING` | When `BUS_SILENCE_S` has passed since the last attempt with no frame (whether or not that attempt opened the bus, HEALTH-14), and attempts < `BUS_REOPEN_ATTEMPTS`, `ReopenBus` again | Frame received → `STARTING`. All `BUS_REOPEN_ATTEMPTS` attempts used and `BUS_SILENCE_S` passed since the last one with no frame → `RECOVERING` |
 | `RECOVERING` | From `STALE` (terminal) | `SetAvailability(m, false)` for every module, `SetEscalation(n + 1)`, then `Exit(75 if n = 0 else 76, reason)`, where `n` is the current escalation | None. The process is exiting | Process exit |
 | `DEAD` | At start-up: escalation ≥ `DEAD_AFTER`, adapter absent, or bus open failed | `SetAvailability(m, false)` for every module. DEAD timer starts | `ReopenBus` every `DEAD_RETRY_S` while no frame arrives. `Exit(76, "dead_usb_reset")` once `DEAD_USB_RESET_S` has passed since entry | Any frame → `STARTING`. `DEAD_USB_RESET_S` reached → exit 76 |
 
@@ -126,12 +126,14 @@ lower case per `06-mqtt.md` (MQTT-18), for example `STALE` → `stale` (HEALTH-2
 * **HEALTH-14** A `ReopenBus` attempt that fails to open the bus MUST count as a used attempt
   in `STALE` and as a retry in `DEAD`. The next attempt still waits for its normal interval.
 * **HEALTH-15** `RECOVERING` MUST persist the incremented escalation counter (section 6)
-  before the process exits. The exit in `DEAD` MUST NOT change the escalation counter.
+  before the process exits. The exit in `DEAD` MUST NOT change the escalation counter. If
+  writing `recovery.json` fails, the failure is logged at `WARNING` and the exit proceeds
+  with its code unchanged.
 * **HEALTH-16** The escalation counter MUST only be reset by `SetEscalation(0)` after
   `RECOVERY_RESET_S` of unbroken `HEALTHY`. Any other state restarts that timer.
-* **HEALTH-17** After `ReopenBus` succeeds, the first received frame (as defined for
-  `bus_age`) MUST move `STALE` or `DEAD` to `STARTING`. That transition re-polls every
-  module (HEALTH-08).
+* **HEALTH-17** In `STALE` or `DEAD`, any received frame that counts as bus activity (as
+  defined for `bus_age`) MUST move the machine to `STARTING` at the next `step`, whether or
+  not a `ReopenBus` has run or succeeded. That transition re-polls every module (HEALTH-08).
 
 ### 4.1 Reasons
 
@@ -162,9 +164,9 @@ codes are fixed:
 | Call | Meaning |
 |---|---|
 | `start(now, open_ok, detail)` | Called once, after the application has read the escalation counter and attempted the first bus open. `open_ok=false` with `detail` `adapter_absent` or another error |
-| `on_frame(arbitration_id, now)` | A non-error frame was received whose class counts as bus activity (PROTO-05); `ECHO` frames are not reported |
+| `on_frame(arbitration_id, now)` | A non-error frame was received whose class counts as bus activity (PROTO-05); `ECHO` frames are not reported. A `MALFORMED` frame is reported as `on_frame(0x18F20103, now)` (the heartbeat id), so it counts as bus activity without refreshing any module age |
 | `on_error_frame(now)` | A CAN error frame was received |
-| `on_bus_exception(now, detail)` | `recv` raised `OSError`, or `send` raised `OSError` other than `ENOBUFS`/`EAGAIN` (a full TX queue on an un-ACKed bus is not a bus fault) |
+| `on_bus_exception(now, detail)` | `recv` or `send` raised a `TransportFault` of any kind except `TX_BLOCKED` (a full TX queue on an un-ACKed bus is not a bus fault) |
 | `on_bus_open(now, ok, detail)` | The result of a `ReopenBus` action |
 | `step(now) -> list[Action]` | Advance timers and return the actions due |
 
@@ -177,7 +179,12 @@ input as follows. `detail` is `"<kind>: <message>"` unless stated otherwise.
 | `open`, first open at start-up | any other (`LINK_DOWN`, `OS_ERROR`, `OPEN_FAILED`, `CAN_ERROR`, `LISTEN_ONLY_REFUSED`) | `start(now, False, detail)` (reason `bus_open_failed`) |
 | `open`, from `ReopenBus` | any | `on_bus_open(now, False, detail)` |
 | `send` | `TX_BLOCKED` | None. Logged at `WARNING`; not a bus fault. The retry ladder (HEALTH-09) re-polls if the cells stay stale |
-| `recv` or `send` | `DEVICE_GONE`, `LINK_DOWN`, `OS_ERROR`, `CAN_ERROR`, `NOT_OPEN` | `on_bus_exception(now, detail)` |
+| `recv` or `send` | any other kind | `on_bus_exception(now, detail)` |
+
+After reporting a `recv` or `send` fault through `on_bus_exception`, the application closes
+the bus at once and marks it closed. While the bus is closed, each main-loop iteration sleeps
+for the receive timeout (CAN-12) instead of calling `recv`, and a `Poll` action sends nothing,
+so one fault is reported once. The bus stays closed until a `ReopenBus` action opens it.
 
 The machine is constructed with the settings and the escalation counter value read at
 start-up. After that, it is the only thing that changes the counter.
@@ -189,14 +196,16 @@ start-up. After that, it is the only thing that changes the counter.
 | `Transition(old, new, reason)` | Log at `INFO`, publish service state (section 8), send `STATUS=` to systemd (`09-service.md`) |
 | `Poll(module)` | Send the poll frame for `module` (`01-protocol.md`) |
 | `SetAvailability(module, online)` | Publish module availability (section 8) |
-| `ReopenBus` | Shut down the bus if open, wait 2 s, open it, then report `on_bus_open` |
+| `ReopenBus` | Shut down the bus if open, wait 2 s, open it, then report `on_bus_open`. This is the only action that reopens a bus closed after a fault (section 5.1) |
 | `SuspendPolling(reason)` | Log at `WARNING` and publish the diagnostic. Has no effect on state |
 | `SetEscalation(value)` | Atomically write the escalation counter (section 6) |
 | `Exit(code, reason)` | Publish service state, run the clean-stop sequence (`09-service.md`) and exit with `code` |
 
 * **HEALTH-19** The machine MUST expose exactly the inputs in 5.1 and emit only the actions
   in 5.2. `step` MUST return actions in a deterministic order: `Transition` first, then
-  `SetAvailability`, `SetEscalation`, `SuspendPolling`, `Poll`, `ReopenBus`, `Exit`.
+  `SetAvailability`, `SetEscalation`, `SuspendPolling`, `Poll`, `ReopenBus`, `Exit`. Within
+  one `step`, only the last `SetAvailability` queued for each module MUST be returned, and
+  the `SetAvailability` actions MUST be sorted by module number.
 * **HEALTH-20** The machine MUST also expose read-only access to the current state, the last
   reason and each module's status and ages, for publishing. Module status is the enum
   `ModuleStatus` with exactly the members `OK`, `CELLS_STALE` and `SILENT` (HEALTH-05); it is
@@ -277,5 +286,5 @@ service.
 * **HEALTH-33** The main loop's `recv` MUST use the bounded timeout defined in
   `02-can-transport.md`, so a silent bus never blocks an iteration. The health machine never
   blocks (HEALTH-02).
-* **HEALTH-34** No action other than `ReopenBus` (HEALTH-21) and the shutdown publish
-  (HEALTH-31) may block the main loop for more than 1 s.
+* **HEALTH-34** Carrying out an action MUST NOT block the main loop for more than 1 s, except
+  `ReopenBus` (HEALTH-21) and the shutdown publish before an `Exit` (HEALTH-31).

@@ -32,6 +32,9 @@ Variables referenced here (`CAN_INTERFACE`, `CAN_CHANNEL`, `CAN_BITRATE`, `CAN_R
   `RxErrorFrame(error_class: int, data: bytes, at: float)` are immutable. `at` is the
   injected monotonic clock at the moment `recv` obtained the message, never python-can's
   `msg.timestamp` (whose epoch differs between interfaces). `LinkState` is defined in §7.
+
+  `open()` is a no-op when the bus is already open, and entering the `with` block does not
+  open the bus; the application calls `open()` explicitly.
 * **CAN-02** The python-can implementation (`PythonCanTransport`) MUST take the settings
   object, the monotonic clock and a sleep function as constructor arguments (the sleep is
   used by `reopen`) and MUST NOT read the environment itself.
@@ -189,7 +192,9 @@ The acceptance set is:
 
 `LinkState` fields: `state` (enum below), `operstate` (str or `None`), `listen_only`
 (bool or `None`), `bitrate` (int or `None`), `berr_tx`, `berr_rx`, `restarts`,
-`bus_off` (each int or `None`), `at` (monotonic time of the query).
+`bus_off`, `rx_dropped` (each int or `None`), `at` (monotonic time of the query).
+`rx_dropped` is the kernel's `stats64.rx.dropped` count and is published as
+`dropped_frames` (`06-mqtt.md`).
 
 | `state` | Condition |
 |---|---|
@@ -212,9 +217,14 @@ These member names are code identifiers. The published `can_state` value is lowe
 * **CAN-28** The JSON MUST be parsed as: first array element; `flags` for `UP`; `operstate`;
   `linkinfo.info_data.state`, `.ctrlmode` (contains `"LISTEN-ONLY"` → `listen_only`),
   `.bittiming.bitrate`, `.berr_counter.tx` / `.rx`; `linkinfo.info_xstats.restarts` and
-  `.bus_off`. Each missing or mistyped field MUST become `None` individually; `state` is
-  `UNKNOWN` only if the state itself cannot be determined. Unrecognised `info_data.state`
-  strings MUST map to `UNKNOWN`.
+  `.bus_off`; `stats64.rx.dropped` → `rx_dropped`. Each missing or mistyped field MUST
+  become `None` individually, except that a missing `ctrlmode` inside a present `info_data`
+  MUST give `listen_only=False`; `state` is `UNKNOWN` only if the state itself cannot be
+  determined. Unrecognised `info_data.state` strings MUST map to `UNKNOWN`.
+
+  The `ctrlmode` exception exists because `ip -j` omits `ctrlmode` entirely when no
+  control-mode flag is set. A missing `info_data`, or a `ctrlmode` that is not a list, still
+  gives `listen_only=None`.
 * **CAN-29** A non-zero exit whose stderr contains `does not exist` MUST yield `ABSENT`. A
   missing `ip` binary, any other non-zero exit, a timeout, or invalid JSON MUST yield
   `UNKNOWN`. `link_state()` MUST NOT raise in any of these cases. Unit tests MUST cover each
@@ -238,8 +248,8 @@ for `TX_BLOCKED`) is defined in `03-health-and-recovery.md` §5.1.
 | `recv` returns no message within `timeout` | — | Not an error; `recv` returns `None` (CAN-12) |
 | `OSError` with `ENODEV` or `ENXIO`; `usb.core.USBError` with errno `ENODEV`/`EIO` or "No such device" | `DEVICE_GONE` | Bus exception |
 | `OSError` with `ENETDOWN` | `LINK_DOWN` | Bus exception |
-| `OSError` with `ENOBUFS` or `EAGAIN` on `send`; `can.CanOperationError` for a send timeout | `TX_BLOCKED` | Not a bus fault (logged; HEALTH §5.1) |
-| Any other `OSError` | `OS_ERROR` | Bus exception |
+| On `send`: errno `ENOBUFS` or `EAGAIN`; or, when no errno was found, `can.CanTimeoutError` or a `can.CanOperationError` whose text contains "timed out" or "buffer full" | `TX_BLOCKED` | Not a bus fault (logged; HEALTH §5.1) |
+| Any other exception carrying an errno (CAN-32), including a python-can exception, and any other `OSError` | `OS_ERROR` | Bus exception |
 | `can.CanInitializationError` not attributable to the rows above | `OPEN_FAILED` | Bus exception |
 | Any other `can.CanError` | `CAN_ERROR` | Bus exception |
 | gs_usb adapter refuses listen-only (CAN-16) | `LISTEN_ONLY_REFUSED` | Bus exception |
@@ -251,6 +261,12 @@ for `TX_BLOCKED`) is defined in `03-health-and-recovery.md` §5.1.
   in `CanOperationError` / `CanInitializationError`, so the errno MUST be taken from the
   exception itself, its `error_code` attribute, or the first `OSError` in its
   `__cause__` / `__context__` chain, in that order.
+
+  The rows are checked top to bottom. An exception with an errno that matches no earlier
+  row maps to `OS_ERROR` before the `CanInitializationError` → `OPEN_FAILED` and
+  `CanError` → `CAN_ERROR` rows are considered, so a wrapped OS error from `open` is
+  `OS_ERROR`, not `OPEN_FAILED`. The send-timeout forms of `TX_BLOCKED` apply only when no
+  errno was found.
 * **CAN-33** After any `TransportFault` from `recv` or `send`, the transport MUST remain
   usable for `close()` and `reopen()`; it MUST NOT attempt recovery on its own.
 * **CAN-34** A test MUST drive a fake python-can bus that raises `OSError(ENODEV)`,

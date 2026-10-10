@@ -11,11 +11,11 @@
 # prefixes the package name (dyness-b3-bms-mqtt-v0.1.0), and the quick-start archive URL
 # and unpacked directory name expect vX.Y.Z (INST-18).
 #
-# .release-please-manifest.json holds the last *released* version, and release-please
-# treats whatever it says as already released. Nothing has been tagged yet, so it starts
-# at 0.0.0 while __version__ says 0.1.0: the first release PR then proposes 0.1.0
-# (a feat bumps the minor version before 1.0). Starting the manifest at 0.1.0 would make
-# that first release 0.2.0. Each release PR moves the manifest and __version__ together.
+# .release-please-manifest.json records the last released version, matching the newest
+# vX.Y.Z tag; release-please computes the next version from it and the commits since that
+# tag (a feat bumps the minor version before 1.0). Each release PR moves, together:
+# __version__ in src/dyness_b3_bms_mqtt/__init__.py, the manifest, and the two
+# `x-release-please-version` lines (README quick start, docs/specs/10-installation.md §6).
 name: release-please
 
 on:

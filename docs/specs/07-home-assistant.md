@@ -139,8 +139,10 @@ its components:
   section 4 and 5: `platform`, `unique_id`, `name`, `device_class`, `unit_of_measurement`,
   `state_class`, `entity_category`, `suggested_display_precision` and `enabled_by_default`
   (omitted where the table shows "—", and `enabled_by_default` omitted when "yes"), the
-  `value_template` given by its template code (below), `expire_after` (HA-16), and for
-  `binary_sensor` `payload_on` = `ON` and `payload_off` = `OFF`.
+  `value_template` given by its template code (below), `expire_after` (HA-16), for
+  `binary_sensor` `payload_on` = `ON` and `payload_off` = `OFF`, plus the options HA-12
+  (`state_topic` override), HA-13 (`options`) and HA-17 (`json_attributes_topic`,
+  `json_attributes_template`) add.
 
 Template codes: **S** is `{{ value_json.<key> }}`; **B** is
 `{{ None if value_json.<key> is none else ('ON' if value_json.<key> else 'OFF') }}`;
@@ -265,7 +267,7 @@ Every key of `06-mqtt.md` appears in sections 4 and 5 except:
 | Module | `online` | Already the module availability topic (HA-14) |
 | Module | `bms_alarm_flags`, `bms_protection_flags` | Attributes of `bms_alarm` / `bms_protection` (HA-17) |
 | Stack | `ts` | As above |
-| Stack | `any_alarm`, `any_protection` | Raw roll-ups (TEL-17) covered by `alert_any_bms_alarm` / `alert_any_bms_protection` (the latter also counts `fault` bits, ALERT-08, whereas `any_protection` counts `cut` bits only); kept in the payload for non-HA consumers |
+| Stack | `any_alarm`, `any_protection` | Raw roll-ups (TEL-17) covered by `alert_any_bms_alarm` / `alert_any_bms_protection` (the latter also counts `fault` bits, ALERT-08, whereas `any_protection` counts `protection` bits only); kept in the payload for non-HA consumers |
 | Service | `ts` | As above |
 
 ## 6. Availability and expiry
