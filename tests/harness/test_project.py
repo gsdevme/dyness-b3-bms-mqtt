@@ -86,6 +86,7 @@ def test_release_please_config() -> None:
                 "package-name": "dyness-b3-bms-mqtt",
                 "changelog-path": "CHANGELOG.md",
                 "include-v-in-tag": True,
+                "include-component-in-tag": False,
                 "bump-minor-pre-major": True,
                 "prerelease": True,
                 "pull-request-title-pattern": "build${scope}: release${component} ${version}",
@@ -125,10 +126,14 @@ def test_quick_start_version_is_bumped_by_release_please() -> None:
     """The quick start names the current release, and release-please keeps it that way.
 
     Each file carries exactly two annotated lines, the download and the ``cd`` into the
-    unpacked archive, and every version on them is the one in ``pyproject.toml``.
+    unpacked archive, and every version on them is the one in ``pyproject.toml``. The
+    download URL names the tag ``vX.Y.Z``, so release-please must tag without the package
+    name, and GitHub unpacks that tag's archive into ``dyness-b3-bms-mqtt-X.Y.Z``.
     """
     package = json.loads((ROOT / "release-please-config.json").read_text())["packages"]["."]
     assert package["prerelease"] is True
+    assert package["include-v-in-tag"] is True
+    assert package["include-component-in-tag"] is False
     generic = {entry["path"] for entry in package["extra-files"] if entry["type"] == "generic"}
     assert generic == {"README.md", "docs/specs/10-installation.md"}
 
@@ -142,6 +147,9 @@ def test_quick_start_version_is_bumped_by_release_please() -> None:
         assert len(lines) == 2, path
         for line in lines:
             assert re.findall(r"\d+\.\d+\.\d+", line) == [version], line
+        download, cd = lines
+        assert f"/archive/refs/tags/v{version}.tar.gz" in download, path
+        assert f"cd dyness-b3-bms-mqtt-{version}" in cd, path
 
 
 @pytest.mark.req("TEST-02", "TEST-11")

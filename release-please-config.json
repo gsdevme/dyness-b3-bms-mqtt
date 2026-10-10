@@ -5,6 +5,7 @@
       "package-name": "dyness-b3-bms-mqtt",
       "changelog-path": "CHANGELOG.md",
       "include-v-in-tag": true,
+      "include-component-in-tag": false,
       "bump-minor-pre-major": true,
       "prerelease": true,
       "pull-request-title-pattern": "build${scope}: release${component} ${version}",
