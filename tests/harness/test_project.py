@@ -162,7 +162,7 @@ def test_ci_workflow() -> None:
         assert forbidden not in text
     workflow = yaml.safe_load(text)
     triggers = workflow.get("on", workflow.get(True))
-    assert triggers["push"] is None
+    assert triggers["push"] == {"branches": ["main"]}
     assert triggers["pull_request"] == {"branches": ["main"]}
     jobs = workflow["jobs"]
     assert set(jobs) == {"check", "mqtt"}

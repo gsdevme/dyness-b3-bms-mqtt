@@ -2,8 +2,10 @@
 name: ci
 
 on:
-  # Every push to any branch; no branch filter on purpose.
+  # Pushes to main only. A PR branch is covered by the pull_request event; running on its
+  # pushes as well made every commit run the whole workflow twice.
   push:
+    branches: [main]
   pull_request:
     branches: [main]
 
