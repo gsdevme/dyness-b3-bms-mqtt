@@ -521,13 +521,11 @@ LOADED_RUNNER_S = 0.6
 """Upper bound for a real-time ``recv`` on a loaded CI runner; the 50 ms is shown on a FakeClock."""
 
 
-@pytest.mark.req("CAN-09", "CAN-12")
-def test_recv_filters_without_ending_early_and_within_50ms(can_channel: str) -> None:
+@pytest.mark.req("CAN-12")
+def test_recv_filters_without_ending_early_and_within_50ms() -> None:
     """A discarded frame never ends ``recv`` early, and the deadline overshoots by at most 50 ms.
 
-    The FakeClock half proves the deadline arithmetic exactly. The live half only proves
-    that ``recv`` neither returns before its timeout nor waits it out once an accepted frame
-    arrives; its upper bound is wide so a loaded runner cannot make it flaky.
+    The FakeClock makes the deadline arithmetic exact.
     """
     fake_clock = FakeClock(100.0)
     recorder = Recorder(clock=fake_clock)
@@ -544,10 +542,18 @@ def test_recv_filters_without_ending_early_and_within_50ms(can_channel: str) -> 
     assert (frame.arbitration_id, frame.extended, frame.data) == (0x18F21121, True, b"\x0c" * 8)
     assert frame.at == pytest.approx(100.3)
 
+
+@pytest.mark.req("CAN-09")
+def test_live_recv_discards_unaccepted_frames_without_ending_early(can_channel: str) -> None:
+    """On a real virtual bus a discarded frame neither ends ``recv`` early nor outlasts it.
+
+    The upper bounds are wide so a loaded runner cannot make this flaky; the 50 ms overshoot
+    is proved on a FakeClock by the CAN-12 test.
+    """
     live = PythonCanTransport(
         make_settings(CAN_CHANNEL=can_channel),
         time.monotonic,
-        fake_clock.sleep,
+        FakeClock(0.0).sleep,
         link_query=LinkQuery(),
     )
     with live, can.Bus(interface="virtual", channel=can_channel) as peer:
