@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.2.0...v0.3.0) (2026-10-10)
+
+
+### Features
+
+* **make:** add upgrade target that installs the newest release ([a5c5a41](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/a5c5a419dccb405bf719061d7d82a9d3eac8e876))
+
+
+### Bug Fixes
+
+* **can-up:** send log lines to the journal when run by udev ([a950961](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/a95096102971cf3e29b1c1cb7823b2ecbd4dbd41))
+
 ## [0.2.0](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.2...v0.2.0) (2026-10-10)
 
 
