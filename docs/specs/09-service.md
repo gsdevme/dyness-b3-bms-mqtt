@@ -160,16 +160,29 @@ SocketCAN link up with the configured settings.
   3. **Absent link.** If `/sys/class/net/$CAN_CHANNEL` does not exist, log
      `can-up: $CAN_CHANNEL absent` and exit 0.
   4. **Already correct.** Read `ip -details link show dev "$CAN_CHANNEL"`. If the link is
-     `UP`, `bitrate` equals `$CAN_BITRATE`, `restart-ms` equals `$CAN_RESTART_MS`, and
-     `LISTEN-ONLY` appears in the control-mode list exactly when `CAN_LISTEN_ONLY` is true,
-     exit 0 without changes.
+     `UP`, `bitrate` equals `$CAN_BITRATE`, `restart-ms` equals `$CAN_RESTART_MS` or `0`,
+     and `LISTEN-ONLY` appears in the control-mode list exactly when `CAN_LISTEN_ONLY` is
+     true, exit 0 without changes. `restart-ms 0` is accepted because a device that refuses
+     automatic bus-off restart (step 5) stays at `0`, and comparing against
+     `$CAN_RESTART_MS` alone would bounce its link on every run. The script keeps no state,
+     so a supporting device left at `0` by hand is also accepted.
   5. **Configure.** Otherwise run, in order:
 
      ```sh
      ip link set dev "$CAN_CHANNEL" down
      ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" restart-ms "$CAN_RESTART_MS" listen-only "$LISTEN"   # LISTEN is on or off
+     ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" listen-only "$LISTEN"   # only if the previous command failed and CAN_RESTART_MS is not 0
      ip link set dev "$CAN_CHANNEL" up
      ```
+
+     If the combined command fails and `$CAN_RESTART_MS` is not `0`, the script MUST retry
+     it once without `restart-ms`. Some devices reject `restart-ms` outright; the `gs_usb`
+     driver on kernel 6.18 answers `Error: Device doesn't support restart from Bus Off.`,
+     and the whole command then sets nothing, not even the bitrate. When the retry
+     succeeds, the script MUST log one line saying the device does not support automatic
+     bus-off restart and `CAN_RESTART_MS` is ignored, and its success line reports
+     `restart-ms 0`. When `$CAN_RESTART_MS` is `0` there is no retry. The first failure is
+     logged as in step 6 either way, and `up` runs whatever the outcome.
   6. **Always exit 0.** Every failure MUST be logged to stderr (which journald captures)
      with the failing command and its output, and the script still exits 0. A link that is
      not up is reported by the service's bus open, not by a failed `ExecStartPre`.

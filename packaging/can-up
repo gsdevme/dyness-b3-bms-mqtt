@@ -7,7 +7,8 @@
 # of docs/specs/08-configuration.md (a test compares the `setting` lines with them). The
 # environment file is parsed with sed and never sourced, because it can hold an MQTT_PASSWORD
 # with shell metacharacters. The link is reconfigured only when it differs from the settings,
-# and the script never waits, so it fits in udev's RUN+= time budget.
+# and the script never waits, so it fits in udev's RUN+= time budget. A device that refuses
+# restart-ms (gs_usb on some kernels) is configured without it and left at restart-ms 0.
 #
 # The script always exits 0: failures are logged to stderr (journald) with the command and its
 # output, and a link that is still not up is reported by the service's bus open.
@@ -72,11 +73,16 @@ token() {
 }
 
 # is_correct DETAILS: succeed if `ip -details link show` output DETAILS shows the link up
-# with the wanted bitrate, restart-ms and listen-only mode.
+# with the wanted bitrate, restart-ms and listen-only mode. restart-ms 0 is also accepted,
+# because a device that refuses automatic bus-off restart stays at 0 after configure; the
+# script keeps no state to tell such a device from one that was set to 0 by hand.
 is_correct() {
     printf '%s\n' "$1" | head -n 1 | grep -Eq '<([^>]*,)?UP(,[^>]*)?>' || return 1
     [ "$(printf '%s\n' "$1" | token bitrate)" = "$CAN_BITRATE" ] || return 1
-    [ "$(printf '%s\n' "$1" | token restart-ms)" = "$CAN_RESTART_MS" ] || return 1
+    case $(printf '%s\n' "$1" | token restart-ms) in
+        0 | "$CAN_RESTART_MS") ;;
+        *) return 1 ;;
+    esac
     if printf '%s\n' "$1" | grep -Eq '^[[:space:]]*can <([^>]*,)?LISTEN-ONLY(,[^>]*)?>'; then
         current=on
     else
@@ -116,10 +122,20 @@ fi
 
 run ip link set dev "$CAN_CHANNEL" down
 configured=yes
-run ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" restart-ms "$CAN_RESTART_MS" \
-    listen-only "$LISTEN" || configured=
+restart_ms=$CAN_RESTART_MS
+if ! run ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" \
+    restart-ms "$CAN_RESTART_MS" listen-only "$LISTEN"; then
+    if [ "$CAN_RESTART_MS" != 0 ] &&
+        run ip link set dev "$CAN_CHANNEL" type can bitrate "$CAN_BITRATE" listen-only "$LISTEN"; then
+        restart_ms=0
+        log "$CAN_CHANNEL does not support automatic bus-off restart;" \
+            "CAN_RESTART_MS=$CAN_RESTART_MS ignored"
+    else
+        configured=
+    fi
+fi
 run ip link set dev "$CAN_CHANNEL" up || configured=
 if [ -n "$configured" ]; then
-    log "$CAN_CHANNEL up: bitrate $CAN_BITRATE restart-ms $CAN_RESTART_MS listen-only $LISTEN"
+    log "$CAN_CHANNEL up: bitrate $CAN_BITRATE restart-ms $restart_ms listen-only $LISTEN"
 fi
 exit 0

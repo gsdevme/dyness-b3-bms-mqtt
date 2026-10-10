@@ -5,7 +5,10 @@ the environment file and a state directory, selected by the helpers' test seams
 ``SYSFS_ROOT``, ``DEV_ROOT``, ``ENV_FILE`` and ``STATE_DIRECTORY``. External commands are
 fakes in a ``bin`` directory that comes first on ``PATH``: each fake appends its argv to
 ``FAKE_LOG`` (one line per call, fields separated by tabs) and replays the scripted
-``<name>.stdout``, ``<name>.stderr`` and ``<name>.status`` files next to it.
+``<name>.stdout``, ``<name>.stderr`` and ``<name>.status`` files next to it. A call with an
+argument equal to the word in ``<name>.when`` replays ``<name>.when.stdout``,
+``<name>.when.stderr`` and ``<name>.when.status`` instead, so one call can fail while the
+others succeed.
 
 The rest of ``PATH`` is a ``tools`` directory of links to only the ordinary utilities the
 helpers use, so a real ``ip`` or ``usbreset`` installed on the machine can never run and a
@@ -54,9 +57,19 @@ name=${0##*/}
     done
     printf '\\n'
 } >> "$FAKE_LOG"
-if [ -f "$here/$name.stdout" ]; then cat "$here/$name.stdout"; fi
-if [ -f "$here/$name.stderr" ]; then cat "$here/$name.stderr" >&2; fi
-if [ -f "$here/$name.status" ]; then exit "$(cat "$here/$name.status")"; fi
+replay=$here/$name
+if [ -f "$replay.when" ]; then
+    word=$(cat "$replay.when")
+    for arg in "$@"; do
+        if [ "$arg" = "$word" ]; then
+            replay=$replay.when
+            break
+        fi
+    done
+fi
+if [ -f "$replay.stdout" ]; then cat "$replay.stdout"; fi
+if [ -f "$replay.stderr" ]; then cat "$replay.stderr" >&2; fi
+if [ -f "$replay.status" ]; then exit "$(cat "$replay.status")"; fi
 exit 0
 """
 
@@ -114,6 +127,13 @@ class Sandbox:
         (self.bin / f"{name}.stdout").write_text(stdout)
         (self.bin / f"{name}.stderr").write_text(stderr)
         (self.bin / f"{name}.status").write_text(f"{status}\n")
+
+    def script_when(
+        self, name: str, word: str, *, stdout: str = "", stderr: str = "", status: int = 0
+    ) -> None:
+        """Script what the fake ``name`` prints and returns on calls with argument ``word``."""
+        (self.bin / f"{name}.when").write_text(f"{word}\n")
+        self.script(f"{name}.when", stdout=stdout, stderr=stderr, status=status)
 
     def calls(self) -> list[list[str]]:
         """Return the argv of every fake call so far, command name first, in call order."""
