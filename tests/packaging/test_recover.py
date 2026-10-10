@@ -35,6 +35,7 @@ CONFIGURE = [
     ["ip", "link", "set", "dev", "can0", "up"],
 ]
 CAN_UP = [SHOW, *CONFIGURE]
+CAN_UP_FAILING = [SHOW, *CONFIGURE[:2], [*CONFIGURE[1][:9], *CONFIGURE[1][11:]], CONFIGURE[2]]
 NETDEV_WAIT = [0.5] * 16
 NETDEV_POLLS = [["sleep", "0.5"]] * len(NETDEV_WAIT)
 AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -140,7 +141,7 @@ def test_recover_75_bounces_link(sandbox: Sandbox) -> None:
     sandbox.script("ip", stderr='Cannot find device "can0"\n', status=1)
     run = sandbox.run("recover", EXIT_STATUS="75")
     assert run.returncode == 0
-    assert sandbox.calls() == [DOWN, *CAN_UP]
+    assert sandbox.calls() == [DOWN, *CAN_UP_FAILING]
 
 
 @pytest.mark.req("SVC-16", "SVC-18")
@@ -160,7 +161,11 @@ def test_recover_76_usb_reset_fallback_order(sandbox: Sandbox, step: str) -> Non
     lines = stderr_lines(run.stderr)
     usbreset = usbreset_call(sandbox)
     unbound = (drivers / "unbind").read_text(), (drivers / "bind").read_text()
-    if step in ("ioctl", "ip-down-fails"):
+    if step == "ip-down-fails":
+        assert sandbox.calls() == [DOWN, usbreset, *CAN_UP_FAILING]
+        assert (device / "authorized").read_text() == "1\n"
+        assert unbound == ("", "")
+    elif step == "ioctl":
         assert sandbox.calls() == [DOWN, usbreset, *CAN_UP]
         assert (device / "authorized").read_text() == "1\n"
         assert unbound == ("", "")

@@ -220,7 +220,9 @@ start-up. After that, it is the only thing that changes the counter.
 
 * **HEALTH-22** Error frames MUST NOT update `bus_age` and MUST NOT by themselves cause a
   state change, a reopen or an exit. Bus-off is handled by the kernel's automatic restart
-  (`CAN_RESTART_MS`, applied by `can-up`).
+  (`CAN_RESTART_MS`, applied by `can-up`). On a device that refuses automatic restart
+  (`09-service.md` SVC-14 step 5) a bus-off is instead seen as bus silence and goes through
+  `STALE` and `RECOVERING` to the exit 75 link bounce (section 7).
 * **HEALTH-23** The machine MUST count error frames in a sliding window of `ERROR_WINDOW_S`.
   When the count reaches `ERROR_SUSPEND_COUNT`, it MUST emit `SuspendPolling` once. Polling
   then stays suspended for the life of the process. A restart clears the suspension.

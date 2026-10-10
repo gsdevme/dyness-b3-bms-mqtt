@@ -49,7 +49,7 @@ to variables by name and MUST NOT restate defaults.
 | `CAN_INTERFACE` | enum | `socketcan` | One of `socketcan`, `gs_usb`, `slcan`, `virtual`. python-can interface name |
 | `CAN_CHANNEL` | string | `can0` | socketcan/virtual: interface name. slcan: serial device path. gs_usb: adapter index as decimal integer |
 | `CAN_BITRATE` | int | `500000` | 10000..1000000. Used by `can-up` and non-socketcan interfaces |
-| `CAN_RESTART_MS` | int | `100` | 0..60000. Kernel automatic bus-off restart delay; 0 disables |
+| `CAN_RESTART_MS` | int | `100` | 0..60000. Kernel automatic bus-off restart delay; 0 disables. Ignored, with one logged line, on devices that refuse automatic restart (`09-service.md` SVC-14 step 5) |
 | `CAN_LISTEN_ONLY` | bool | `false` | `true`: never transmit, no polls, cell sensors only populate if something else polls |
 | `CAN_USB_ID` | string | `1d50:606f` | `hhhh:hhhh` hex. USB vendor:product used by the USB-reset helper fallback when `CAN_CHANNEL` has vanished |
 | `MODULE_COUNT` | int | `3` | 1..4. Modules 1..`MODULE_COUNT` are polled and published |

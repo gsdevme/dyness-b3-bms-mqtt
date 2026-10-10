@@ -234,7 +234,11 @@ These member names are code identifiers. The published `can_state` value is lowe
 * **CAN-31** The application MUST call `link_state()` every 10 s (fixed, not configuration)
   from the main loop and publish the result as service diagnostics (`06-mqtt.md`). A state
   change MUST be logged at `INFO`. `restarts` increasing is how kernel bus-off restarts
-  (governed by `CAN_RESTART_MS`) become visible.
+  (governed by `CAN_RESTART_MS`) become visible. On a device that refuses automatic restart
+  (`09-service.md` SVC-14 step 5) the link runs at `restart-ms 0`, kernel restarts never
+  occur and `restarts` stays 0. A bus-off there silences the bus and is handled by the
+  escalation ladder of `03-health-and-recovery.md`: `ReopenBus` from `STALE`, then exit 75,
+  whose link bounce by `recover` restarts the controller.
 
 ## 8. Exception mapping
 

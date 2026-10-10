@@ -20,6 +20,7 @@ HELPER_SETTINGS = {
     "recover": ["CAN_INTERFACE", "CAN_CHANNEL", "CAN_USB_ID"],
 }
 SHOW = ["ip", "-details", "link", "show", "dev", "can0"]
+NO_RESTART = "Error: Device doesn't support restart from Bus Off."
 
 
 def configure(
@@ -45,6 +46,15 @@ def configure(
         ],
         ["ip", "link", "set", "dev", channel, "up"],
     ]
+
+
+def configure_without_restart(
+    channel: str = "can0", bitrate: str = "500000", restart_ms: str = "100", listen: str = "off"
+) -> list[list[str]]:
+    """Return the ``ip`` calls of SVC-14 step 5 when the device refuses ``restart-ms``."""
+    down, combined, up = configure(channel, bitrate, restart_ms, listen)
+    retry = [*combined[:9], *combined[11:]]
+    return [down, combined, retry, up]
 
 
 def spec_defaults() -> dict[str, str]:
@@ -154,7 +164,7 @@ def test_can_up_idempotent_no_ip_set_when_correct(sandbox: Sandbox, listen_only:
     [
         (ip_details(up=False), {}, configure()),
         (ip_details(bitrate=250000), {}, configure()),
-        (ip_details(restart_ms=0), {}, configure()),
+        (ip_details(restart_ms=200), {}, configure()),
         (ip_details(listen_only=True), {}, configure()),
         (ip_details(), {"CAN_LISTEN_ONLY": "true"}, configure(listen="on")),
         (ip_details(), {"CAN_BITRATE": "250000"}, configure(bitrate="250000")),
@@ -270,16 +280,64 @@ def test_can_up_always_exit_0_and_prefix(sandbox: Sandbox) -> None:
     result = sandbox.run("can-up")
     assert result.returncode == 0
     assert result.stdout == ""
-    assert sandbox.calls() == [SHOW, *configure()]
+    assert sandbox.calls() == [SHOW, *configure_without_restart()]
     lines = result.stderr.splitlines()
     assert lines
     assert all(line.startswith("can-up: ") for line in lines), lines
-    for call in [SHOW, *configure()]:
-        assert any(" ".join(call) in line and "status 2" in line for line in lines), call
-    assert lines.count("can-up: RTNETLINK answers: Operation not permitted") == 4
-    assert lines.count("can-up: second line") == 4
+    for call in [SHOW, *configure_without_restart()]:
+        assert any(line.endswith(f"{' '.join(call)} failed with status 2") for line in lines), call
+    assert lines.count("can-up: RTNETLINK answers: Operation not permitted") == 5
+    assert lines.count("can-up: second line") == 5
 
     sandbox.script("ip", status=127)
     unwritable = sandbox.state / "missing" / "env"
     result = sandbox.run("can-up", ENV_FILE=str(unwritable))
     assert result.returncode == 0
+
+
+@pytest.mark.req("SVC-14")
+def test_can_up_retries_without_restart_ms_when_refused(sandbox: Sandbox) -> None:
+    sandbox.script_when("ip", "restart-ms", stderr=f"{NO_RESTART}\n", status=2)
+    result = sandbox.run("can-up")
+    assert result.returncode == 0
+    assert sandbox.calls() == [SHOW, *configure_without_restart()]
+    assert sandbox.sleeps() == []
+    assert result.stderr.splitlines() == [
+        "can-up: ip link set dev can0 type can bitrate 500000 restart-ms 100 listen-only off"
+        " failed with status 2",
+        f"can-up: {NO_RESTART}",
+        "can-up: can0 does not support automatic bus-off restart; CAN_RESTART_MS=100 ignored",
+        "can-up: can0 up: bitrate 500000 restart-ms 0 listen-only off",
+    ]
+
+
+@pytest.mark.req("SVC-14")
+@pytest.mark.parametrize("listen_only", [False, True])
+def test_can_up_accepts_restart_ms_0_when_refused(sandbox: Sandbox, listen_only: bool) -> None:
+    sandbox.script("ip", stdout=ip_details(restart_ms=0, listen_only=listen_only))
+    sandbox.script_when("ip", "restart-ms", stderr=f"{NO_RESTART}\n", status=2)
+    result = sandbox.run("can-up", CAN_LISTEN_ONLY=str(listen_only).lower())
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+    assert sandbox.calls() == [SHOW]
+
+
+@pytest.mark.req("SVC-14")
+@pytest.mark.parametrize(
+    ("restart_ms", "expected"),
+    [("100", configure_without_restart()), ("0", configure(restart_ms="0"))],
+    ids=["retried", "restart-ms-0"],
+)
+def test_can_up_genuine_configure_failure(
+    sandbox: Sandbox, restart_ms: str, expected: list[list[str]]
+) -> None:
+    error = "Error: argument 1 is not a valid bitrate."
+    sandbox.script_when("ip", "bitrate", stderr=f"{error}\n", status=2)
+    result = sandbox.run("can-up", CAN_RESTART_MS=restart_ms)
+    assert result.returncode == 0
+    assert sandbox.calls() == [SHOW, *expected]
+    lines = result.stderr.splitlines()
+    for call in expected[1:-1]:
+        assert f"can-up: {' '.join(call)} failed with status 2" in lines, call
+    assert lines.count(f"can-up: {error}") == len(expected) - 2
+    assert not any("restart" in line and "ignored" in line for line in lines), lines
+    assert not any(line.startswith("can-up: can0 up:") for line in lines), lines
