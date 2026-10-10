@@ -9,4 +9,4 @@ python strategy rewrites the line on each release. Its pattern is ``__version__ 
 so the line carries no type annotation.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
