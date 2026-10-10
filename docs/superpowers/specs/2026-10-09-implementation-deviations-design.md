@@ -6,11 +6,10 @@
 
 Reviewing each implementation task against `docs/specs/` found places where the living spec
 and the code disagree. In each case the code was reviewed and kept, so the spec now records
-what is implemented. No code changed for that; the only test edits are the requirement
-markers of two tests (INST-17) and the doc block of the traceability plugin. Two code
-changes from the final branch review are recorded as follow-ups under changes 8 and 10. The
-earlier design records (`2026-10-09-dyness-b3-bms-mqtt-design.md`,
-`2026-10-09-implementation-amendments-design.md`) are unchanged.
+what is implemented. No code changed; the only test edits are the requirement markers of two
+tests (INST-17) and the doc block of the traceability plugin. The earlier design records
+(`2026-10-09-dyness-b3-bms-mqtt-design.md`, `2026-10-09-implementation-amendments-design.md`)
+are unchanged.
 
 ## Changes
 
@@ -51,11 +50,6 @@ earlier design records (`2026-10-09-dyness-b3-bms-mqtt-design.md`,
    `index` re-runs `start()`/`stop()` in normal mode, outside the CAN-16 listen-only window.
    A `gs_usb` USB write timeout maps to `OS_ERROR` and an absent adapter to `OPEN_FAILED`,
    as the §8 table already implies; the note makes that explicit.
-   * Final-review follow-up: `open()` now passes `ignore_config=True` to `can.Bus`, so
-     python-can loads no configuration file or `CAN_*`/`CAN_CONFIG` variable. Documenting
-     the merge was not enough: a malformed `/etc/can.conf` or `CAN_CONFIG` raised a
-     `configparser` or JSON error that §8 does not map, so the service exited 1 and
-     crash-looped. The CAN-04 note now says the bus gets exactly the table's arguments.
 9. **SVC-11, MQTT-10** (`09-service.md`, `06-mqtt.md`): the implemented clean stop is
    `STOPPING=1`, then the retained `offline` and final service state published without
    waiting (and the local history closed), then `bus.shutdown()`, then `publisher.stop()`,
@@ -67,11 +61,6 @@ earlier design records (`2026-10-09-dyness-b3-bms-mqtt-design.md`,
     still holds it open (it is closed at the first write of the new day). Every write has
     been flushed and nothing more goes to the old handle, so on Linux the gzip copy is
     complete before the name is unlinked and no data is lost.
-    * Final-review follow-up: housekeeping gzips at level 6 instead of 9 and at most
-      `MAX_COMPRESS_PER_RUN` = 8 files per run; the next hourly runs take the rest. It runs
-      on the main loop, so a backlog (after lowering `LOCAL_LOG_COMPRESS_AFTER_DAYS`, say)
-      could otherwise outlast `WatchdogSec=30`. LOG-15 gains a note; LOG-17 holds once the
-      backlog is cleared.
 11. **TEST-39, TEST-40, SVC-02** (`11-testing.md`, `09-service.md`,
     `docs/acceptance/README.md`): SVC-02 and INST-16 had no checklist step, so TEST-40
     (every **MANUAL** requirement covered by a step) did not hold and the acceptance README
