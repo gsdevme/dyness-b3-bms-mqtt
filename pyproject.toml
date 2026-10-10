@@ -1,6 +1,6 @@
 [project]
 name = "dyness-b3-bms-mqtt"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Read a Dyness B3 battery stack over CAN and publish it to MQTT with Home Assistant discovery"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -13,8 +13,17 @@ gs-usb = ["gs-usb", "pyusb"]
 dyness-b3-bms-mqtt = "dyness_b3_bms_mqtt.app:main"
 
 [build-system]
-requires = ["uv_build>=0.12.24,<0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/dyness_b3_bms_mqtt/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dyness_b3_bms_mqtt"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src"]
 
 [dependency-groups]
 dev = [

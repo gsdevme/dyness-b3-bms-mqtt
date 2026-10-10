@@ -81,7 +81,6 @@ wheels = [
 
 [[package]]
 name = "dyness-b3-bms-mqtt"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "paho-mqtt" },
