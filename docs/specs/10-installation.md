@@ -194,7 +194,8 @@ next to it and installs that. Removal: `sudo make uninstall`, or `sudo make unin
 configuration and state.
 
 * **INST-15** The README quick-start commands above MUST work on a fresh Pi OS Lite 64-bit
-  Bookworm image, with the service ending up `active (running)`. **MANUAL**.
+  image, with the service ending up `active (running)`. **MANUAL**. Tested on Trixie
+  (Debian 13) on 2026-10-10; Bookworm is untested.
 * **INST-16** A second `sudo make install` on the same Pi MUST finish without errors, keep a
   modified `/etc/default/dyness-b3-bms-mqtt` byte-for-byte, and restart the service.
   **MANUAL**.
