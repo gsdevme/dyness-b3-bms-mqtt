@@ -14,7 +14,7 @@ from tests.support.spec import spec_text, table_rows
 pytestmark = pytest.mark.timeout(30)
 
 SETTING = re.compile(r"^([A-Z_]+)=\$\(setting \1 (\S+)\)$", re.MULTILINE)
-SHARED_FUNCTIONS = ("log", "unquote", "from_file", "setting")
+SHARED_FUNCTIONS = ("unquote", "from_file", "setting")
 HELPER_SETTINGS = {
     "can-up": ["CAN_INTERFACE", "CAN_CHANNEL", "CAN_BITRATE", "CAN_RESTART_MS", "CAN_LISTEN_ONLY"],
     "recover": ["CAN_INTERFACE", "CAN_CHANNEL", "CAN_USB_ID"],
@@ -341,3 +341,49 @@ def test_can_up_genuine_configure_failure(
     assert lines.count(f"can-up: {error}") == len(expected) - 2
     assert not any("restart" in line and "ignored" in line for line in lines), lines
     assert not any(line.startswith("can-up: can0 up:") for line in lines), lines
+
+
+LOGGER = """#!/bin/sh
+{
+    printf 'logger'
+    for arg in "$@"; do
+        printf '\\t%s' "$arg"
+    done
+    printf '\\n'
+} >> "$FAKE_LOG"
+cat >> "${0%/*}/logger.stdin"
+"""
+
+
+def add_logger(sandbox: Sandbox) -> Path:
+    """Install a fake ``logger`` that logs its argv and appends its stdin to the returned file."""
+    path = sandbox.bin / "logger"
+    path.write_text(LOGGER)
+    path.chmod(0o755)
+    return sandbox.bin / "logger.stdin"
+
+
+@pytest.mark.req("SVC-14", "SVC-20", "SVC-22")
+@pytest.mark.parametrize("under_systemd", [False, True], ids=["udev", "systemd"])
+def test_can_up_logs_to_journal_outside_systemd(sandbox: Sandbox, under_systemd: bool) -> None:
+    received = add_logger(sandbox)
+    sandbox.script_when("ip", "restart-ms", stderr=f"{NO_RESTART}\n", status=2)
+    env = {"JOURNAL_STREAM": "8:12345"} if under_systemd else {}
+    result = sandbox.run("can-up", "can0", **env)
+    assert result.returncode == 0
+    lines = [
+        "ip link set dev can0 type can bitrate 500000 restart-ms 100 listen-only off"
+        " failed with status 2",
+        NO_RESTART,
+        "can0 does not support automatic bus-off restart; CAN_RESTART_MS=100 ignored",
+        "can0 up: bitrate 500000 restart-ms 0 listen-only off",
+    ]
+    assert result.stderr.splitlines() == [f"can-up: {line}" for line in lines]
+    logger_calls = [call for call in sandbox.calls() if call[0] == "logger"]
+    if under_systemd:
+        assert logger_calls == []
+        assert not received.exists()
+    else:
+        assert logger_calls
+        assert all(call == ["logger", "-t", "can-up", "-p", "daemon.info"] for call in logger_calls)
+        assert received.read_text().splitlines() == lines

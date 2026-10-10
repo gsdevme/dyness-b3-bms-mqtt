@@ -187,6 +187,14 @@ SocketCAN link up with the configured settings.
      with the failing command and its output, and the script still exits 0. A link that is
      not up is reported by the service's bus open, not by a failed `ExecStartPre`.
   7. `can-up` MUST NOT wait or sleep, so it stays within udev's `RUN+=` time budget.
+  8. **Journal outside systemd.** When `$JOURNAL_STREAM` is unset or empty (systemd sets it
+     when a unit's stderr is the journal, so it is absent under udev) and `logger` is on
+     `PATH`, every line the script logs to stderr MUST also be passed to
+     `logger -t can-up -p daemon.info`, without the `can-up: ` prefix. udev discards the
+     output of `RUN+=` programs, so without this a boot-time, replug or post-reset run
+     (SVC-20) leaves no trace; with it those runs show in `journalctl -t can-up`. Under the
+     unit `logger` MUST NOT be called, so each line reaches the journal once. stderr output
+     is the same in both cases.
 
 ## 6. `recover` helper
 
@@ -270,6 +278,10 @@ possible future hook. It is not a requirement and has no configuration variable.
 ACTION=="add", SUBSYSTEM=="net", KERNEL=="can*", RUN+="/usr/local/lib/dyness-b3-bms-mqtt/can-up $name"
 ```
 
+  udev discards what `RUN+=` programs print, so `can-up` logs these runs through `logger`
+  (SVC-14 step 8): `journalctl -b -t can-up` shows how the link was configured at boot and
+  after a replug or USB reset.
+
 * **SVC-21** Unplugging and replugging the adapter while the service runs MUST bring the
   link back up configured (through the udev rule) and the service back to `HEALTHY`
   (through `STALE` → `STARTING`, or a restart), with no manual action. **MANUAL**.
@@ -279,7 +291,8 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL=="can*", RUN+="/usr/local/lib/dyness-b3-
 * **SVC-22** The service MUST log only to stdout/stderr in the format of CFG-10. journald
   collects it under the unit, so `journalctl -u dyness-b3-bms-mqtt -f` follows the service
   and its helpers. The helpers MUST prefix every line with their own name (`can-up:`,
-  `recover:`).
+  `recover:`). `can-up` runs started by udev are not under the unit; they reach the journal
+  through `logger` with the tag `can-up` (SVC-14 step 8).
 
 ## 10. Hardware acceptance (MANUAL summary)
 

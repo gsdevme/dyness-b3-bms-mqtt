@@ -15,6 +15,8 @@ work and the record format.
    testing a git checkout), `uname -r` and `cat /etc/debian_version`.
 3. Keep a terminal on `make logs`; use `systemctl status dyness-b3-bms-mqtt` and
    `ip -d -s link show can0` for the other observations.
+   Link configuration done by the udev rule (at boot, on replug and after a USB reset) is
+   not under the unit: read it with `journalctl -b -t can-up`.
 4. The MQTT-side observations (`<base>/status`, health, module freshness, counters) can be
    taken from any machine that reaches the broker with the `verify-mqtt` Claude Code skill
    (`.claude/skills/verify-mqtt/`); journal lines still need the Pi.
