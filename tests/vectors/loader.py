@@ -1,6 +1,6 @@
 """Reader for the vendored vector files in ``tests/vectors/``.
 
-Every vector file keeps the capture line format of ``dyness-debug/data/2026-10-08/``
+Every vector file keeps the capture line format of the 8 October 2026 hardware captures
 (TEST-15): ``<time> <ID hex> <X|S> <data bytes hex>`` for a received frame (``X`` = 29-bit
 extended, ``S`` = 11-bit standard) and ``<time> TX <ID hex> <data bytes hex>`` for a frame
 the capture tool transmitted. Lines starting with ``#`` are comments; the leading run of
@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 VECTORS = Path(__file__).resolve().parent
-SOURCE_PREFIX = "dyness-debug/data/2026-10-08/"
+SOURCE_PREFIX = "hardware-capture/2026-10-08/"
 """Header label naming the capture a vendored file came from; never resolved as a path."""
 HEADER_FIELD = re.compile(r"#\s*(?P<key>[a-z]+):\s*(?P<value>.*)")
 

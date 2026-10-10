@@ -5,9 +5,10 @@ Dyness B3 modules over CAN and publishes it to MQTT, with Home Assistant discove
 value turns up as an entity. It runs under systemd, recovers from adapter and link failures
 on its own, and reports its own health.
 
-It is the always-on follow-up to [dyness-debug](https://github.com/gsdevme/dyness-debug),
-which worked out the protocol and found one weak cell in each of modules 2 and 3 (M2 #8,
-M3 #9). This service keeps an eye on those cells and on the stack as a whole.
+It grew out of a private diagnostic repository (dyness-debug) that worked out the protocol
+and found one weak cell in each of modules 2 and 3 (M2 #8, M3 #9). Everything this project
+needs from that work is in `docs/specs/01-protocol.md` and the captures under
+`tests/vectors/`. This service keeps an eye on those cells and on the stack as a whole.
 
 **Status (10 Oct 2026):** v0.1.1 is released as a prerelease; hardware acceptance is still
 pending. The behaviour is specified in `docs/specs/`; the acceptance run on the real stack is
@@ -146,7 +147,3 @@ Tests run against a simulated battery stack on python-can's `virtual` bus.
 * With `CAN_LISTEN_ONLY=true` it transmits nothing at all.
 * It does not use RS485 and does not control the inverter.
 * This repository contains no Dyness software, manuals or parameter files.
-
-## Credits
-
-Protocol, captures and diagnosis: [dyness-debug](https://github.com/gsdevme/dyness-debug).

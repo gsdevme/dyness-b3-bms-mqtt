@@ -31,8 +31,8 @@ either, but MUST NOT mix both spellings of the same key in one payload.
   | Module `m` | `<P>/device/<N>_m<m>/config` | `["<N>_m<m>"]` | `<HA_DEVICE_NAME> Module <m>`, or `<HA_DEVICE_NAME> <name>` when `MODULE_NAMES` names module `m` | `Dyness` | `B3` | `<N>_stack` |
 
   `×` is U+00D7. The service diagnostics (section 5) are components of the stack device.
-  No `sw_version` or `serial_number` is set: the B3 reports neither (see
-  `../dyness-debug/docs/protocol.md`), and the service version is not the battery's.
+  No `sw_version` or `serial_number` is set: the B3 reports neither (no frame in
+  `01-protocol.md` §4 carries them), and the service version is not the battery's.
 * **HA-04** Discovery messages MUST be published retained with QoS 1, the stack device
   first and then modules in ascending order.
 * **HA-05** Every discovery payload MUST contain `origin` with `name`

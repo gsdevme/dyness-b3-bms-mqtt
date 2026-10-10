@@ -5,7 +5,7 @@ one for the stack at a fixed interval, plus a plain-text events file, rolled per
 compressed after a while and deleted after a retention period. It exists so the weak cells
 can be analysed directly (spreadsheet, pandas, `zcat | grep`) without Home Assistant's
 recorder, and so the history survives a broker or Home Assistant outage. The format follows
-`../dyness-debug/overnight_logger.py` (`cells-*.csv`, `events-*.log`), with columns renamed
+the overnight logger used during diagnosis (`cells-*.csv`, `events-*.log`), with columns renamed
 to the MQTT JSON keys of `06-mqtt.md` so both sources read the same.
 
 Variables referenced here (`LOCAL_LOG`, `LOCAL_LOG_INTERVAL_S`, `LOCAL_LOG_RETENTION_DAYS`,
