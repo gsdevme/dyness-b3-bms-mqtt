@@ -21,7 +21,7 @@ described in [`docs/acceptance/README.md`](docs/acceptance/README.md).
 | Batteries | 3 × Dyness B3, 48 V / 75 Ah, **15S** LFP (stack 225 Ah / 10.8 kWh) |
 | Inverter | Solis RHI-3.6K-48ES-5G, battery type "Dyness LV", closed loop over CAN |
 | Adapter | DSD TECH SH-C31A USB-CAN (CANable 2.0, candleLight firmware): [Amazon UK](https://www.amazon.co.uk/dp/B0CDGD1FSH). Works with the Linux kernel `gs_usb` driver as delivered |
-| Host | Raspberry Pi Zero 2 W running Raspberry Pi OS 64-bit (Bookworm or later) |
+| Host | Raspberry Pi Zero 2 W running Raspberry Pi OS 64-bit (Bookworm or later; tested on Trixie) |
 | Home Assistant | 2024.11 or newer, with an MQTT broker |
 
 The BMS talks **CAN** on RJ45 pins 4/5 with the Solis DIP setting, not RS485; RS485 stays
@@ -70,6 +70,9 @@ and a udev rule. Running it again upgrades in place and never overwrites your se
 
 For a cautious first run, set `CAN_LISTEN_ONLY=true`: the service then transmits nothing,
 and the cell sensors stay empty until you turn polling back on.
+
+Shut the Pi down with `sudo poweroff` before pulling its power: hard power-offs have
+corrupted files on the SD card, including the wifi profile.
 
 ## What appears in Home Assistant
 

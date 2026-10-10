@@ -9,15 +9,21 @@ work and the record format.
 
 ## 1. Before you start
 
-1. Flash Pi OS Lite 64-bit Bookworm and follow the README quick start, with
-   `CAN_LISTEN_ONLY=true` in `/etc/default/dyness-b3-bms-mqtt`.
-2. Note the release installed (the archive's version, or `git rev-parse --short HEAD` when
+1. Flash Pi OS Lite 64-bit and follow the README quick start, with
+   `CAN_LISTEN_ONLY=true` in `/etc/default/dyness-b3-bms-mqtt`. Trixie (Debian 13) is what
+   has been tested; Bookworm is supported (INST-01) but untested.
+2. Make the journal persistent, so `journalctl -b -1` covers the boot before a power-cycle:
+   `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`.
+3. Shut down with `sudo poweroff` before pulling power, except where a step calls for a hard
+   power-off. Hard power-offs have cost ext4 orphan cleanup and the Pi's wifi profile; a
+   wired connection avoids losing the session.
+4. Note the release installed (the archive's version, or `git rev-parse --short HEAD` when
    testing a git checkout), `uname -r` and `cat /etc/debian_version`.
-3. Keep a terminal on `make logs`; use `systemctl status dyness-b3-bms-mqtt` and
+5. Keep a terminal on `make logs`; use `systemctl status dyness-b3-bms-mqtt` and
    `ip -d -s link show can0` for the other observations.
    Link configuration done by the udev rule (at boot, on replug and after a USB reset) is
    not under the unit: read it with `journalctl -b -t can-up`.
-4. The MQTT-side observations (`<base>/status`, health, module freshness, counters) can be
+6. The MQTT-side observations (`<base>/status`, health, module freshness, counters) can be
    taken from any machine that reaches the broker with the `verify-mqtt` Claude Code skill
    (`.claude/skills/verify-mqtt/`); journal lines still need the Pi.
 
@@ -87,11 +93,19 @@ Release: <version or sha> · Kernel: <uname -r> · Debian: <version> · Settings
 | … | | |
 | Step 17 | pass/fail | |
 
+## Incidental observations
+
+| Action | Observation |
+|---|---|
+
 ## UNVERIFIED facts
 
 | Spec | Fact | Confirmed or contradicted | Spec updated |
 |---|---|---|---|
 ```
+
+Mark steps not run as `not run`, and say at the top when the run is partial. Record
+behaviour seen outside the checklist steps under "Incidental observations".
 
 Any **UNVERIFIED** fact the run confirms or contradicts must be updated in `docs/specs/`
 (with a dated design doc) in the same change as the record.

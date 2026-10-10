@@ -43,7 +43,7 @@ Non-goals. The service MUST NOT:
 | Batteries | 3 × Dyness B3, 48 V / 75 Ah, **15S** LFP (not 16S). Stack 225 Ah / 10.8 kWh |
 | Inverter | Solis RHI-3.6K-48ES-5G, battery type "Dyness LV", closed loop over CAN |
 | DIP switches | Master `0010`, slaves `0000`. Never changed by this project |
-| Host | Raspberry Pi Zero 2 W, Raspberry Pi OS 64-bit (Bookworm or later), 512 MB RAM |
+| Host | Raspberry Pi Zero 2 W, Raspberry Pi OS 64-bit (Bookworm or later; tested on Trixie), 512 MB RAM |
 | Adapter | DSD TECH SH-C31A USB-CAN (CANable 2.0 design, candleLight firmware), [Amazon B0CDGD1FSH](https://www.amazon.co.uk/dp/B0CDGD1FSH) |
 | Cable | RJ45 pin 4 (solid blue) → CAN_H, pin 5 (blue/white) → CAN_L, all other pins and GND unconnected. Adapter 120 Ω termination **OFF** |
 | Connection point | Spare **OUT** port of the last slave. All module and inverter frames are visible there |
