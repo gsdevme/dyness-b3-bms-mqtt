@@ -158,7 +158,8 @@ find_device() {
     return 1
 }
 
-# reset_ioctl: send USBDEVFS_RESET to the device node (SVC-18 step 3).
+# reset_ioctl: reset the device by bus/device address, which usbutils' usbreset takes
+# instead of a /dev node, or send USBDEVFS_RESET to the node directly (SVC-18 step 3).
 reset_ioctl() {
     busnum=$(cat "$DEVICE/busnum" 2>/dev/null)
     devnum=$(cat "$DEVICE/devnum" 2>/dev/null)
@@ -168,11 +169,11 @@ reset_ioctl() {
             return 1
             ;;
     esac
-    node=$(printf '%s/bus/usb/%03d/%03d' "$DEV_ROOT" "$(decimal "$busnum")" "$(decimal "$devnum")")
+    address=$(printf '%03d/%03d' "$(decimal "$busnum")" "$(decimal "$devnum")")
     if command -v usbreset >/dev/null 2>&1; then
-        run usbreset "$node"
+        run usbreset "$address"
     else
-        run /usr/bin/python3 -c "$USBDEVFS_RESET" "$node"
+        run /usr/bin/python3 -c "$USBDEVFS_RESET" "$DEV_ROOT/bus/usb/$address"
     fi
 }
 
