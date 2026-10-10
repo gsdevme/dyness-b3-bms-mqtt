@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.2...v0.2.0) (2026-10-10)
+
+
+### Features
+
+* **skills:** add verify-mqtt skill for live acceptance checks ([6d94917](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/6d94917d1398f30b45306417be27ac96a9824655))
+
+
+### Bug Fixes
+
+* **can-up:** retry without restart-ms when the device refuses it ([8380356](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/83803568a0717f0f4030c7a1ea854854529fd393))
+
 ## [0.1.2](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.1...v0.1.2) (2026-10-10)
 
 
