@@ -6,12 +6,21 @@
       "changelog-path": "CHANGELOG.md",
       "include-v-in-tag": true,
       "bump-minor-pre-major": true,
+      "prerelease": true,
       "pull-request-title-pattern": "build${scope}: release${component} ${version}",
       "extra-files": [
         {
           "type": "toml",
           "path": "uv.lock",
           "jsonpath": "$.package[?(@.name=='dyness-b3-bms-mqtt')].version"
+        },
+        {
+          "type": "generic",
+          "path": "README.md"
+        },
+        {
+          "type": "generic",
+          "path": "docs/specs/10-installation.md"
         }
       ]
     }
