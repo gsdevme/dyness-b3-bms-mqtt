@@ -8,6 +8,8 @@
 #   make dev                      uv sync in the checkout's own .venv (any host)
 #   make check                    lint, format check, types and tests
 #   sudo make install             install, or upgrade in place; never touches your settings
+#   sudo make upgrade             fetch the newest release next to this checkout and install it
+#   sudo make upgrade VERSION=vX.Y.Z   the same for a given release
 #   sudo make uninstall           remove everything but settings, state and uv
 #   sudo make uninstall PURGE=1   also remove settings and state
 #   make status                   systemctl status of the service
@@ -53,6 +55,10 @@ DESTDIR ?=
 INSTALL_OWNER ?= -o root -g root
 # PURGE=1 makes uninstall also remove the env file and the state directory (INST-08).
 PURGE ?= 0
+# The release tag upgrade installs, vX.Y.Z (INST-19). Empty means the newest release.
+# A plain assignment, so only the command line sets it: a VERSION in the environment
+# (os-release defines one) is ignored.
+VERSION :=
 
 # ---------------------------------------------------------------------------------------
 # Fixed values. Only the host facts and install options above may be set on the command
@@ -64,7 +70,8 @@ PURGE ?= 0
 # ---------------------------------------------------------------------------------------
 
 FIXED := CHECKOUT PACKAGING OS_RELEASE_FILE SERVICE OPT_DIR PYTHON_DIR VENV_DIR HELPER_DIR \
-	ENVFILE UNIT_FILE UDEV_RULE UV_BIN_DIR STATE_DIRS UV_ENV CHECK_CONFIG
+	ENVFILE UNIT_FILE UDEV_RULE UV_BIN_DIR STATE_DIRS UV_ENV CHECK_CONFIG PARENT RELEASES_API \
+	ARCHIVES SUBMAKE
 $(foreach name,$(FIXED),$(if $(or $(findstring command line,$(origin $(name))),$(findstring environment override,$(origin $(name)))),$(error $(name) is fixed by the Makefile and cannot be set on the command line or with make -e)))
 
 override PACKAGING := $(CHECKOUT)/packaging
@@ -85,6 +92,18 @@ override UV_BIN_DIR := /usr/local/bin
 # /var/lib/<name> to it.
 override STATE_DIRS := /var/lib/$(SERVICE) /var/lib/private/$(SERVICE)
 
+# INST-19: upgrade unpacks a release next to this checkout, in the directory that holds it.
+override PARENT := $(abspath $(CHECKOUT)/..)
+# The newest release first, prereleases included. /releases/latest skips prereleases, and
+# every release is a prerelease until 1.0 (INST-18).
+override RELEASES_API := https://api.github.com/repos/gsdevme/dyness-b3-bms-mqtt/releases?per_page=1
+# GitHub's source archive for a tag is $(ARCHIVES)/<tag>.tar.gz.
+override ARCHIVES := https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags
+# The sub-make upgrade runs. Make runs any recipe line that names $(MAKE) itself even under
+# `make -n`; going through this variable keeps `make -n upgrade` a dry run that downloads
+# nothing.
+override SUBMAKE = $(MAKE)
+
 # INST-05: the environment of every uv call made by install.
 #   UV_PYTHON_INSTALL_DIR  put the managed CPython under /opt, not in root's home, where
 #                          the service's dynamic user could not read it;
@@ -101,7 +120,8 @@ override UV_ENV := UV_PYTHON_INSTALL_DIR="$(DESTDIR)$(PYTHON_DIR)" UV_PYTHON_PRE
 # setting) and --collect removes the transient unit even when it fails.
 override CHECK_CONFIG := systemd-run --quiet --pipe --wait --collect -p DynamicUser=yes -p EnvironmentFile=-$(ENVFILE) $(VENV_DIR)/bin/$(SERVICE) --check-config
 
-.PHONY: dev check root-check preflight install uninstall status logs restart check-config
+.PHONY: dev check root-check preflight install upgrade uninstall status logs restart \
+	check-config
 
 # ---------------------------------------------------------------------------------------
 # Development (INST-09, TEST-33). Touches nothing outside the checkout.
@@ -120,7 +140,8 @@ check:
 # Checks run before anything is changed.
 # ---------------------------------------------------------------------------------------
 
-# INST-02: install, uninstall, restart and check-config stop here unless run as root.
+# INST-02: install, upgrade, uninstall, restart and check-config stop here unless run as
+# root.
 root-check:
 	@if [ "$(EUID)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
 
@@ -193,6 +214,50 @@ install: root-check preflight
 # 13. Show the result. Status 3 (inactive or failed) is shown, not treated as an error.
 	systemctl status --no-pager $(SERVICE) || [ $$? -eq 3 ]
 	@echo "Edit $(ENVFILE) (at least MQTT_HOST), then run: sudo make restart"
+
+# ---------------------------------------------------------------------------------------
+# upgrade (INST-19): install another release from a fresh checkout next to this one. One
+# shell, so that "already at" can end the target early with status 0.
+#  1. curl must be on PATH (install puts it there; a hand-unpacked checkout may predate it).
+#  2. The tag is VERSION, else the first tag_name in the releases API's response. The
+#     response is parsed with grep and sed, which every Debian has, rather than python3 or
+#     jq, which a minimal image may lack. tag_name is a top-level key of each release and
+#     an embedded quote in a release body is escaped, so the first match is the newest
+#     release's own tag, in compact or pretty-printed JSON.
+#  3. The tag must be vX.Y.Z (INST-18). It names the new directory, so this also keeps
+#     "..", "/" and anything else out of that path.
+#  4. The installed console script's --version (empty when nothing is installed) equal to
+#     the tag means there is nothing to do.
+#  5. Never overwrite: an existing file, directory or link of the new name stops here.
+#  6. Download and unpack into PARENT; GitHub names the top directory after the tag without
+#     its "v". A failure removes what was unpacked, which step 5 proved was not there.
+#  7. Give the new checkout the old one's owner, so `sudo` does not leave a root-owned
+#     directory in the user's home, then run its own install as a sub-make.
+# ---------------------------------------------------------------------------------------
+
+upgrade: root-check preflight
+	@command -v curl >/dev/null || { echo "upgrade needs curl: sudo apt-get install -y curl" >&2; exit 1; }; \
+	tag="$(VERSION)"; \
+	if [ -z "$$tag" ]; then \
+		json=$$(curl -fsSL "$(RELEASES_API)") || { echo "cannot fetch $(RELEASES_API)" >&2; exit 1; }; \
+		tag=$$(printf '%s\n' "$$json" | grep -o '"tag_name": *"[^"]*"' | head -n 1 | sed 's/.*"\([^"]*\)"$$/\1/') || true; \
+		[ -n "$$tag" ] || { echo "no tag_name in the response from $(RELEASES_API)" >&2; exit 1; }; \
+	fi; \
+	[[ "$$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$$ ]] || { echo "release tag '$$tag' is not vX.Y.Z" >&2; exit 1; }; \
+	installed=$$("$(DESTDIR)$(VENV_DIR)/bin/$(SERVICE)" --version 2>/dev/null) || installed=; \
+	if [ "v$$installed" = "$$tag" ]; then echo "already at $$tag"; exit 0; fi; \
+	new="$(PARENT)/$(SERVICE)-$${tag#v}"; \
+	if [ -e "$$new" ] || [ -L "$$new" ]; then \
+		echo "$$new already exists; remove it, pass VERSION=vX.Y.Z, or run sudo make install in it" >&2; \
+		exit 1; \
+	fi; \
+	echo "installing $$tag in $$new (installed: $${installed:-none})"; \
+	curl -fsSL "$(ARCHIVES)/$$tag.tar.gz" | tar -xz -C "$(PARENT)" || { \
+		rm -rf "$$new"; echo "cannot download or unpack $(ARCHIVES)/$$tag.tar.gz" >&2; exit 1; }; \
+	[ -f "$$new/Makefile" ] || { echo "$$tag.tar.gz did not unpack to $$new" >&2; exit 1; }; \
+	chown -R --reference="$(CHECKOUT)" "$$new"; \
+	$(SUBMAKE) -C "$$new" install; \
+	echo "$$tag installed from $$new; the old checkout $(CHECKOUT) can be removed"
 
 # ---------------------------------------------------------------------------------------
 # uninstall (INST-08). Safe on a system where nothing is installed. Keeps /usr/local/bin/uv,

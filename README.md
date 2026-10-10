@@ -61,8 +61,8 @@ sudo make restart
 make logs
 ```
 
-Upgrade: download the newer release the same way and run `sudo make install` from its
-directory. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
+Upgrade: run `sudo make upgrade` in the existing checkout; it unpacks the newest release
+next to it and installs that. Removal: `sudo make uninstall`, or `sudo make uninstall PURGE=1` to also remove
 configuration and state.
 
 `make install` installs `uv` and Python 3.14 if needed, the service, the `can0` set-up helper

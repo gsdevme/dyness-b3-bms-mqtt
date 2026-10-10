@@ -11,11 +11,13 @@ user run ``install``. Dry runs (``make -n``) check the real paths and the order 
 ``make check`` cannot leak in. Every test skips without GNU make 3.82 or later.
 """
 
+import io
 import os
 import re
 import shutil
 import stat
 import subprocess
+import tarfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -707,3 +709,229 @@ def test_check_config_uses_systemd_parser(system: System) -> None:
     ]
     assert sourced
     assert all("OS_RELEASE" in argument for argument in sourced), sourced
+
+
+RELEASES_API = "https://api.github.com/repos/gsdevme/dyness-b3-bms-mqtt/releases?per_page=1"
+ARCHIVES = "https://github.com/gsdevme/dyness-b3-bms-mqtt/archive/refs/tags"
+UPGRADE_TOOLS = ("tar", "gzip", "chown")
+STUB_INSTALL = 'install:\n\t@echo "stub install in $(CURDIR) EUID=$(EUID) DESTDIR=$(DESTDIR)"\n'
+RELEASE_COMPACT = (
+    '[{"url":"https://api.github.com/repos/gsdevme/dyness-b3-bms-mqtt/releases/1",'
+    '"author":{"login":"github-actions[bot]","type":"Bot"},"tag_name":"v0.1.3",'
+    '"name":"v0.1.3","prerelease":true,'
+    '"body":"mentions \\"tag_name\\": \\"v9.9.9\\" in its notes"}]'
+)
+RELEASE_PRETTY = (
+    "[\n  {\n"
+    '    "url": "https://api.github.com/repos/gsdevme/dyness-b3-bms-mqtt/releases/1",\n'
+    '    "author": {\n      "login": "github-actions[bot]"\n    },\n'
+    '    "tag_name": "v0.1.3",\n'
+    '    "prerelease": true\n  }\n]\n'
+)
+
+
+@dataclass(frozen=True)
+class Upgrade:
+    """A fake system plus a checkout copy of the Makefile, in a directory of its own."""
+
+    system: System
+    checkout: Path
+
+    @property
+    def parent(self) -> Path:
+        """Return the directory the checkout lives in, where upgrade unpacks a release."""
+        return self.checkout.parent
+
+    def installed(self, version: str) -> None:
+        """Install a fake console script under ``DESTDIR`` that reports ``version``."""
+        script = self.system.path(f"{VENV}/bin/{SERVICE}")
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text(f'#!/bin/sh\n[ "$1" = --version ] && echo {version}\n')
+        script.chmod(0o755)
+
+    def release(self, tag: str, *, makefile: str = STUB_INSTALL) -> None:
+        """Make the fake ``curl`` serve ``tag``'s source archive, as GitHub names it.
+
+        The archive holds one directory, ``dyness-b3-bms-mqtt-X.Y.Z``, with a ``Makefile``
+        whose ``install`` target only reports where it ran, so the real install never runs.
+        """
+        url = f"{ARCHIVES}/{tag}.tar.gz"
+        self.system.box.script_when("curl", url)
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            content = makefile.encode()
+            info = tarfile.TarInfo(f"{SERVICE}-{tag.removeprefix('v')}/Makefile")
+            info.size = len(content)
+            archive.addfile(info, io.BytesIO(content))
+        (self.system.box.bin / "curl.when.stdout").write_bytes(buffer.getvalue())
+
+    def make(self, *, version: str = "", euid: int = 0) -> subprocess.CompletedProcess[str]:
+        """Run ``make upgrade`` on the checkout copy's Makefile; an empty ``VERSION`` is newest."""
+        return self.system.make(
+            "upgrade", euid=euid, makefile=self.checkout / "Makefile", VERSION=version
+        )
+
+    def entries(self) -> set[str]:
+        """Return the names in the checkout's parent directory."""
+        return {path.name for path in self.parent.iterdir()}
+
+
+@pytest.fixture
+def upgrade(system: System, tmp_path: Path) -> Upgrade:
+    """Return a fake system with a 0.1.2 checkout and the tools ``upgrade`` uses on PATH."""
+    tools = Path(system.box.env["PATH"].split(os.pathsep)[1])
+    for tool in UPGRADE_TOOLS:
+        found = shutil.which(tool)
+        assert found is not None, tool
+        (tools / tool).symlink_to(found)
+    checkout = tmp_path / "home" / f"{SERVICE}-0.1.2"
+    checkout.mkdir(parents=True)
+    shutil.copy(ROOT / "Makefile", checkout / "Makefile")
+    return Upgrade(system=system, checkout=checkout)
+
+
+@pytest.mark.req("INST-19")
+@pytest.mark.parametrize("response", [RELEASE_COMPACT, RELEASE_PRETTY], ids=["compact", "pretty"])
+def test_upgrade_to_newest_release(upgrade: Upgrade, response: str) -> None:
+    upgrade.installed("0.1.2")
+    upgrade.system.box.script("curl", stdout=response)
+    upgrade.release("v0.1.3")
+
+    result = upgrade.make()
+    assert result.returncode == 0, result.stderr
+
+    new = upgrade.parent / f"{SERVICE}-0.1.3"
+    assert upgrade.system.box.calls() == [
+        ["curl", "-fsSL", RELEASES_API],
+        ["curl", "-fsSL", f"{ARCHIVES}/v0.1.3.tar.gz"],
+    ]
+    assert upgrade.entries() == {f"{SERVICE}-0.1.2", f"{SERVICE}-0.1.3"}
+    assert f"stub install in {new} EUID=0 DESTDIR={upgrade.system.dest}" in result.stdout
+    assert str(new) in result.stdout.splitlines()[-1]
+    assert str(upgrade.checkout) in result.stdout.splitlines()[-1]
+    assert upgrade.system.files() == {f"{VENV}/bin/{SERVICE}"}
+    assert (new.stat().st_uid, new.stat().st_gid) == (
+        upgrade.checkout.stat().st_uid,
+        upgrade.checkout.stat().st_gid,
+    )
+
+
+@pytest.mark.req("INST-19")
+def test_upgrade_version_override_skips_the_api(upgrade: Upgrade) -> None:
+    upgrade.release("v0.1.1")
+
+    result = upgrade.make(version="v0.1.1")
+    assert result.returncode == 0, result.stderr
+    assert upgrade.system.box.calls() == [["curl", "-fsSL", f"{ARCHIVES}/v0.1.1.tar.gz"]]
+    assert f"stub install in {upgrade.parent / f'{SERVICE}-0.1.1'}" in result.stdout
+
+
+@pytest.mark.req("INST-19")
+@pytest.mark.parametrize("version", ["0.1.3", "v0.1", "v0.1.3/../x", "v1.2.3-rc1"])
+def test_upgrade_rejects_malformed_version(upgrade: Upgrade, version: str) -> None:
+    result = upgrade.make(version=version)
+    assert result.returncode != 0
+    assert "vX.Y.Z" in result.stderr
+    assert upgrade.system.box.calls() == []
+    assert upgrade.entries() == {f"{SERVICE}-0.1.2"}
+
+
+@pytest.mark.req("INST-19")
+@pytest.mark.parametrize("version", ["", "v0.1.3"], ids=["newest", "override"])
+def test_upgrade_already_installed_does_nothing(upgrade: Upgrade, version: str) -> None:
+    upgrade.installed("0.1.3")
+    upgrade.system.box.script("curl", stdout=RELEASE_COMPACT)
+
+    result = upgrade.make(version=version)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().splitlines()[-1] == "already at v0.1.3"
+    assert upgrade.system.box.calls() == ([] if version else [["curl", "-fsSL", RELEASES_API]])
+    assert upgrade.entries() == {f"{SERVICE}-0.1.2"}
+
+
+@pytest.mark.req("INST-19")
+@pytest.mark.parametrize("kind", ["directory", "file", "dangling-link"])
+def test_upgrade_never_overwrites_an_existing_directory(upgrade: Upgrade, kind: str) -> None:
+    upgrade.installed("0.1.2")
+    upgrade.release("v0.1.3")
+    existing = upgrade.parent / f"{SERVICE}-0.1.3"
+    if kind == "directory":
+        existing.mkdir()
+        (existing / "notes.txt").write_text("mine\n")
+    elif kind == "file":
+        existing.write_text("mine\n")
+    else:
+        existing.symlink_to(upgrade.parent / "nowhere")
+
+    result = upgrade.make(version="v0.1.3")
+    assert result.returncode != 0
+    assert f"{existing} already exists" in result.stderr
+    assert "VERSION=" in result.stderr
+    assert upgrade.system.box.calls() == []
+    if kind == "directory":
+        assert [path.name for path in existing.iterdir()] == ["notes.txt"]
+
+
+@pytest.mark.req("INST-19")
+def test_upgrade_curl_failures(upgrade: Upgrade) -> None:
+    upgrade.system.box.script("curl", stderr="curl: (6) Could not resolve host\n", status=6)
+    api = upgrade.make()
+    assert api.returncode != 0
+    assert f"cannot fetch {RELEASES_API}" in api.stderr
+
+    upgrade.system.box.script("curl", stdout='{"message":"API rate limit exceeded"}')
+    no_tag = upgrade.make()
+    assert no_tag.returncode != 0
+    assert "no tag_name" in no_tag.stderr
+
+    upgrade.system.box.script("curl", stdout="[]")
+    no_release = upgrade.make()
+    assert no_release.returncode != 0
+    assert "no tag_name" in no_release.stderr
+
+    upgrade.release("v0.1.3")
+    upgrade.system.box.script_when("curl", f"{ARCHIVES}/v0.1.3.tar.gz", status=22)
+    download = upgrade.make(version="v0.1.3")
+    assert download.returncode != 0
+    assert f"cannot download or unpack {ARCHIVES}/v0.1.3.tar.gz" in download.stderr
+
+    upgrade.system.box.script_when("curl", f"{ARCHIVES}/v0.1.3.tar.gz", stdout="not gzip")
+    garbage = upgrade.make(version="v0.1.3")
+    assert garbage.returncode != 0
+    assert "cannot download or unpack" in garbage.stderr
+    assert upgrade.entries() == {f"{SERVICE}-0.1.2"}
+
+    (upgrade.system.box.bin / "curl").unlink()
+    missing = upgrade.make(version="v0.1.3")
+    assert missing.returncode != 0
+    assert "needs curl" in missing.stderr
+
+
+@pytest.mark.req("INST-19")
+def test_upgrade_archive_with_unexpected_layout(upgrade: Upgrade) -> None:
+    upgrade.release("v0.1.3")
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        archive.addfile(tarfile.TarInfo("elsewhere/README"), io.BytesIO(b""))
+    (upgrade.system.box.bin / "curl.when.stdout").write_bytes(buffer.getvalue())
+
+    result = upgrade.make(version="v0.1.3")
+    assert result.returncode != 0
+    assert f"did not unpack to {upgrade.parent / f'{SERVICE}-0.1.3'}" in result.stderr
+
+
+@pytest.mark.req("INST-02", "INST-19")
+def test_upgrade_requires_root(upgrade: Upgrade) -> None:
+    result = upgrade.make(version="v0.1.3", euid=1000)
+    assert result.returncode != 0
+    assert "run with sudo" in result.stderr
+    assert upgrade.system.box.calls() == []
+    assert upgrade.entries() == {f"{SERVICE}-0.1.2"}
+
+
+@pytest.mark.req("INST-19")
+def test_upgrade_dry_run_runs_nothing() -> None:
+    lines = dry_run("upgrade", "VERSION=v0.1.3")
+    positions(lines, ["run with sudo", "aarch64", "tar -xz", "install"])
+    assert any(line.startswith('curl -fsSL "https://github.com/') for line in lines)
+    assert not [line for line in lines if line.startswith(("installing v", "already at", "stub"))]
