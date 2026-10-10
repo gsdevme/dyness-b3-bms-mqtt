@@ -217,8 +217,9 @@ time-driven and fault-injectable.
 * **TEST-33** `make check` MUST run, and fail on the first failure of: `ruff check`,
   `ruff format --check`, `mypy --strict` over `src/` and `tests/`, and `uv run pytest`.
 * **TEST-34** The repository MUST contain `.github/workflows/ci.yml` running `make check` on
-  `ubuntu-latest` for every `push` event (any branch) and every `pull_request` event
-  targeting `main`, with uv installed by `astral-sh/setup-uv`, Python 3.14, and
+  `ubuntu-latest` for every `push` event to `main` and every `pull_request` event targeting
+  `main` (a PR branch is covered by the `pull_request` event alone, so a commit never runs
+  the workflow twice), with uv installed by `astral-sh/setup-uv`, Python 3.14, and
   `uv sync --frozen`. CI MUST use only the python-can `virtual` interface: no `vcan`, kernel
   modules or `sudo`.
 * **TEST-35** CI SHOULD run the `mosquitto` tests in a second job against an
