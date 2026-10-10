@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.3.0...v0.3.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **recover:** pass usbreset the bus/device address, not the device node ([340f74b](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/340f74b8552691f0b0dce3aa105dc3609df9811a))
+
 ## [0.3.0](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.2.0...v0.3.0) (2026-10-10)
 
 
