@@ -6,6 +6,9 @@
 # README.md and docs/specs/10-installation.md, so the quick start always downloads the
 # latest release's source archive (INST-18).
 # "prerelease": true marks each GitHub release as a prerelease until 1.0 (INST-18).
+# "include-component-in-tag": false keeps tags as plain vX.Y.Z: release-please otherwise
+# prefixes the package name (dyness-b3-bms-mqtt-v0.1.0), and the quick-start archive URL
+# and unpacked directory name expect vX.Y.Z (INST-18).
 #
 # .release-please-manifest.json holds the last *released* version, and release-please
 # treats whatever it says as already released. Nothing has been tagged yet, so it starts

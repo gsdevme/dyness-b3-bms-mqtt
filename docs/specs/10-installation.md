@@ -172,4 +172,7 @@ release, so the quick start always names the latest release.
 * **INST-18** `release-please-config.json` MUST list `README.md` and
   `docs/specs/10-installation.md` as `generic` extra-files, so the annotated version lines
   are bumped with each release, and MUST mark releases as prereleases (`"prerelease": true`)
-  until 1.0.
+  until 1.0. Release tags MUST be `vX.Y.Z` with no package-name prefix
+  (`"include-v-in-tag": true`, `"include-component-in-tag": false`), because the
+  quick-start archive URL names the tag and GitHub names the unpacked directory
+  `dyness-b3-bms-mqtt-X.Y.Z` after it.
