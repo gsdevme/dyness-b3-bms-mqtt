@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/gsdevme/dyness-b3-bms-mqtt/compare/v0.1.0...v0.1.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **release:** tag releases as vX.Y.Z without the package name ([5d0f545](https://github.com/gsdevme/dyness-b3-bms-mqtt/commit/5d0f545525c763798576682f30fbadd7504fb94c))
+
 ## 0.1.0 (2026-10-10)
 
 
